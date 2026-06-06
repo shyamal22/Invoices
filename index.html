@@ -134,6 +134,14 @@ input, select, textarea, button { font-family: inherit; font-size: 17px; }
 .totals-bar .grand, .doc-totals .grand { font-weight: 700; font-size: 19px;
   border-top: 1px solid var(--line); margin-top: 6px; padding-top: 8px; }
 
+/* Logo upload */
+.logo-row { display: flex; gap: 14px; align-items: center; margin-top: 6px; }
+.logo-box { width: 128px; height: 64px; border: 1px solid var(--line); border-radius: 10px;
+  display: flex; align-items: center; justify-content: center; background: #fff; overflow: hidden; }
+.logo-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.logo-actions { display: flex; gap: 8px; }
+.doc-logo { max-height: 64px; max-width: 200px; object-fit: contain; display: block; margin-bottom: 10px; }
+
 /* Empty state */
 .empty { text-align: center; padding: 48px 24px; color: var(--muted); }
 .empty-icon { font-size: 44px; margin-bottom: 12px; }
@@ -291,6 +299,9 @@ const Store = (() => {
     currency: 'NZD',
     locale: 'en-NZ',
     bankAccount: '',
+    logo: '',               // PNG data URL for on-screen preview
+    logoData: '',           // raw RGB bytes (base64) for PDF embedding
+    logoW: 0, logoH: 0,     // logo pixel dimensions
     paymentTerms: 14,       // days until due
     invoicePrefix: 'INV-',
     nextNumber: 1,
@@ -533,6 +544,12 @@ const Pdf = (() => {
   }
 
   function makePage() { return { ops: [] }; }
+  function b64ToBin(b64) {
+    try {
+      return (typeof atob === 'function') ? atob(b64)
+        : Buffer.from(b64, 'base64').toString('latin1');
+    } catch (e) { return ''; }
+  }
   function setColor(p, c) { p.ops.push(`${c[0]} ${c[1]} ${c[2]} rg`); }
   function text(p, x, topY, str, opt = {}) {
     const size = opt.size || 10;
@@ -562,125 +579,185 @@ const Pdf = (() => {
   }
 
   /* data: { inv, settings, client, totals, statusLabel, money, formatDate } */
+  const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  function longDate(iso) {
+    if (!iso) return '';
+    const [y, m, d] = iso.split('-');
+    return (+d) + ' ' + (MON[(+m) - 1] || '') + ' ' + y;
+  }
+  function num(n) {
+    n = Math.round((Number(n) || 0) * 100) / 100;
+    const neg = n < 0; n = Math.abs(n);
+    const parts = n.toFixed(2).split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return (neg ? '-' : '') + parts[0] + '.' + parts[1];
+  }
+
   function generate(data) {
-    const { inv, settings: s, client, totals: t, money, formatDate } = data;
+    const { inv, settings: s, client, totals: t } = data;
+    const cur = s.currency || 'NZD';
+    const rate = t.rate || 0;
     const pages = [];
     let p = makePage(); pages.push(p);
 
-    // ---- Header ----
-    text(p, M, 56, s.businessName || 'My Business', { size: 19, bold: true, color: ACCENT });
-    text(p, PAGE_W - M, 52, 'TAX INVOICE', { size: 11, bold: true, color: GREY, align: 'right' });
-    text(p, PAGE_W - M, 72, inv.number || 'DRAFT', { size: 15, bold: true, align: 'right' });
-    if (data.statusLabel)
-      text(p, PAGE_W - M, 88, data.statusLabel, { size: 9, color: GREY, align: 'right' });
+    // ---- Logo (top-right) ----
+    let img = null, logoBottom = 44;
+    if (s.logoData && s.logoW && s.logoH) {
+      const bin = b64ToBin(s.logoData);
+      if (bin) {
+        const scale = Math.min(150 / s.logoW, 72 / s.logoH);
+        const dispW = s.logoW * scale, dispH = s.logoH * scale;
+        const lx = PAGE_W - M - dispW, lyTop = 40;
+        img = { bin, pxW: s.logoW, pxH: s.logoH };
+        p.ops.push(`q ${dispW.toFixed(2)} 0 0 ${dispH.toFixed(2)} ${lx.toFixed(2)} ${(PAGE_H - lyTop - dispH).toFixed(2)} cm /Img0 Do Q`);
+        logoBottom = lyTop + dispH;
+      }
+    }
 
-    let ly = 78;
-    const lh = 12.5;
-    const leftLines = [];
-    (s.address || '').split('\n').forEach((l) => l.trim() && leftLines.push(l));
-    if (s.email) leftLines.push(s.email);
-    if (s.phone) leftLines.push(s.phone);
-    if (s.gstNumber) leftLines.push('GST: ' + s.gstNumber);
-    leftLines.forEach((l) => { text(p, M, ly, l, { size: 9, color: GREY }); ly += lh; });
-
-    let y = Math.max(ly, 100) + 8;
-    hline(p, M, y, PAGE_W - M); y += 22;
-
-    // ---- Bill to / dates ----
-    const billTop = y;
-    text(p, M, y, 'BILL TO', { size: 8, bold: true, color: GREY }); y += 14;
-    text(p, M, y, client ? client.name : '—', { size: 11, bold: true }); y += 13;
-    if (client && client.email) { text(p, M, y, client.email, { size: 9, color: GREY }); y += 12; }
+    // ---- Header band ----
+    const top = Math.max(logoBottom + 30, 100);
+    text(p, M, top, 'TAX INVOICE', { size: 22, bold: true });
+    let cy = top + 26;
+    const custLines = [];
+    if (client && client.name) custLines.push(client.name);
     if (client && client.address)
-      client.address.split('\n').forEach((l) => { if (l.trim()) { text(p, M, y, l, { size: 9, color: GREY }); y += 12; } });
+      client.address.split('\n').forEach((l) => l.trim() && custLines.push(l));
+    if (!custLines.length) custLines.push('—');
+    custLines.forEach((l) => wrap(l, 235, 10).forEach((w) => { text(p, M, cy, w, { size: 10 }); cy += 13; }));
 
-    const dx = PAGE_W - M;
-    text(p, dx - 78, billTop, 'Issued', { size: 9, color: GREY });
-    text(p, dx, billTop, formatDate(inv.issueDate), { size: 9, align: 'right' });
-    text(p, dx - 78, billTop + 14, 'Due', { size: 9, color: GREY });
-    text(p, dx, billTop + 14, formatDate(inv.dueDate), { size: 9, align: 'right' });
+    // Middle: invoice metadata
+    const midX = 300;
+    let my = top - 6;
+    function meta(label, value) {
+      if (!value) return;
+      text(p, midX, my, label, { size: 9, bold: true }); my += 12;
+      text(p, midX, my, value, { size: 10 }); my += 19;
+    }
+    meta('Invoice Date', longDate(inv.issueDate));
+    meta('Invoice Number', inv.number || 'DRAFT');
+    meta('Reference', inv.reference);
+    meta('GST Number', s.gstNumber);
 
-    y = Math.max(y, billTop + 32) + 16;
+    // Right: your business details
+    const rightX = 410, rightW = PAGE_W - M - rightX;
+    let ry = top - 6;
+    [s.businessName].concat((s.address || '').split('\n')).filter((l) => l && l.trim())
+      .forEach((l, i) => wrap(l, rightW, 10).forEach((w) => { text(p, rightX, ry, w, { size: 10, bold: i === 0 }); ry += 13; }));
 
-    // ---- Table ----
-    const colAmt = PAGE_W - M, colUnit = 470, colQty = 392, descMax = colQty - 70 - M;
+    let y = Math.max(cy, my, ry) + 28;
+
+    // ---- Line-item table ----
+    const amtR = PAGE_W - M, gstR = 470, unitR = 406, qtyR = 325, descMax = 235;
     function tableHeader() {
-      text(p, M, y, 'DESCRIPTION', { size: 8, bold: true, color: GREY });
-      text(p, colQty, y, 'QTY', { size: 8, bold: true, color: GREY, align: 'right' });
-      text(p, colUnit, y, 'UNIT', { size: 8, bold: true, color: GREY, align: 'right' });
-      text(p, colAmt, y, 'AMOUNT', { size: 8, bold: true, color: GREY, align: 'right' });
-      y += 6; hline(p, M, y, PAGE_W - M); y += 14;
+      text(p, M, y, 'Description', { size: 9.5, bold: true });
+      text(p, qtyR, y, 'Quantity', { size: 9.5, bold: true, align: 'right' });
+      text(p, unitR, y, 'Unit Price', { size: 9.5, bold: true, align: 'right' });
+      text(p, gstR, y, 'GST', { size: 9.5, bold: true, align: 'right' });
+      text(p, amtR, y, 'Amount ' + cur, { size: 9.5, bold: true, align: 'right' });
+      y += 7; hline(p, M, y, amtR, { color: [0.55, 0.55, 0.58], width: 0.9 }); y += 16;
     }
     tableHeader();
 
     (inv.lineItems || []).forEach((li) => {
       const qty = Number(li.quantity) || 0, unit = Number(li.unitPrice) || 0;
+      if (y > PAGE_H - 250) { p = makePage(); pages.push(p); y = 60; tableHeader(); }
       const dlines = wrap(li.description || '', descMax, 10);
-      const rowH = dlines.length * 13 + 10;
-      if (y > PAGE_H - 180) { // not enough room — new page
-        p = makePage(); pages.push(p); y = 56; tableHeader();
+      const heading = !qty && !unit; // description-only row acts as a section heading
+      dlines.forEach((l, i) => text(p, M, y + i * 13, l, { size: 10, bold: heading }));
+      if (!heading) {
+        text(p, qtyR, y, num(qty), { size: 10, align: 'right' });
+        text(p, unitR, y, num(unit), { size: 10, align: 'right' });
+        text(p, gstR, y, rate + '%', { size: 10, align: 'right' });
+        text(p, amtR, y, num(qty * unit), { size: 10, align: 'right' });
       }
-      dlines.forEach((l, i) => text(p, M, y + i * 13, l, { size: 10 }));
-      text(p, colQty, y, String(qty), { size: 10, align: 'right' });
-      text(p, colUnit, y, money(unit), { size: 10, align: 'right' });
-      text(p, colAmt, y, money(qty * unit), { size: 10, align: 'right' });
-      hline(p, M, y + (dlines.length - 1) * 13 + 6, PAGE_W - M); // separator in the gap
-      y += rowH;
+      y += dlines.length * 13 + 7;
     });
+    hline(p, M, y - 1, amtR, { color: [0.85, 0.86, 0.9] });
+    y += 18;
 
     // ---- Totals ----
-    y += 18;
-    const labX = colUnit, valX = colAmt;
-    function totalRow(label, value, bold) {
-      text(p, labX, y, label, { size: bold ? 11 : 10, bold, color: bold ? BLACK : GREY, align: 'right' });
-      text(p, valX, y, value, { size: bold ? 11 : 10, bold, align: 'right' });
-      y += bold ? 19 : 15;
+    const tLabR = unitR + 12;
+    function trow(label, value, bold) {
+      text(p, tLabR, y, label, { size: bold ? 11 : 10, bold, align: 'right' });
+      text(p, amtR, y, value, { size: bold ? 11 : 10, bold, align: 'right' });
+      y += bold ? 20 : 16;
     }
-    totalRow('Subtotal', money(t.subtotal));
-    totalRow(`GST (${t.rate}%)`, money(t.gst));
-    y += 4; hline(p, labX - 40, y - 11, PAGE_W - M);
-    totalRow('Total', money(t.total), true);
+    trow('Subtotal', num(t.subtotal));
+    trow('TOTAL GST ' + rate + '%', num(t.gst));
+    hline(p, gstR - 70, y - 12, amtR, { color: [0.55, 0.55, 0.58], width: 0.9 });
+    trow('TOTAL ' + cur, num(t.total), true);
     if (t.paid > 0) {
-      totalRow('Paid', '-' + money(t.paid));
-      y += 4; hline(p, labX - 40, y - 11, PAGE_W - M);
-      totalRow('Balance due', money(t.balance), true);
+      trow('Less Payments', '-' + num(t.paid));
+      hline(p, gstR - 70, y - 12, amtR, { color: [0.55, 0.55, 0.58], width: 0.9 });
+      trow('BALANCE DUE ' + cur, num(t.balance), true);
     }
 
-    // ---- Footer (payment + notes), stacked upward from the bottom margin ----
-    let fy = PAGE_H - M;
-    if (inv.notes) {
-      const nlines = wrap(inv.notes, PAGE_W - 2 * M, 9);
-      for (let i = nlines.length - 1; i >= 0; i--) {
-        text(p, M, fy, nlines[i], { size: 9, color: GREY });
-        fy -= 11;
-      }
-      fy -= 5;
-    }
+    // ---- Payment details ----
+    y += 24;
+    text(p, M, y, 'Due Date: ' + longDate(inv.dueDate), { size: 11, bold: true }); y += 16;
     if (s.bankAccount) {
-      text(p, M, fy, 'Payment to: ' + s.bankAccount, { size: 9.5 });
+      text(p, M, y, 'Or preferred method of payment is direct credit to:', { size: 9.5, color: GREY }); y += 18;
+      text(p, M, y, s.businessName || '', { size: 10 }); y += 13;
+      text(p, M, y, 'Account number: ' + s.bankAccount, { size: 10 }); y += 13;
+    }
+    if (inv.notes) {
+      y += 6;
+      wrap(inv.notes, PAGE_W - 2 * M, 9).forEach((l) => { text(p, M, y, l, { size: 9, color: GREY }); y += 11; });
     }
 
-    return assemble(pages);
+    // ---- Payment advice tear-off ----
+    let ty = Math.max(y + 44, PAGE_H - 196);
+    p.ops.push(`0.55 0.55 0.58 RG 0.8 w [3 3] 0 d ${M} ${(PAGE_H - ty).toFixed(2)} m ${amtR} ${(PAGE_H - ty).toFixed(2)} l S [] 0 d`);
+    ty += 26;
+    text(p, M, ty, 'PAYMENT ADVICE', { size: 18, bold: true });
+    let py = ty + 24;
+    text(p, M, py, 'To:  ' + (s.businessName || ''), { size: 10 }); py += 13;
+    (s.address || '').split('\n').forEach((l) => { if (l.trim()) { text(p, M + 20, py, l, { size: 10 }); py += 13; } });
+
+    const plX = 360, pvX = 470; let qy = ty + 6;
+    function pair(label, value, bold) {
+      text(p, plX, qy, label, { size: 9.5, color: GREY });
+      if (value) text(p, pvX, qy, value, { size: 10, bold });
+      qy += 17;
+    }
+    pair('Customer', client ? client.name : '—');
+    pair('Invoice Number', inv.number || 'DRAFT');
+    hline(p, plX, qy - 11, amtR, { color: [0.85, 0.86, 0.9] });
+    pair('Amount Due', num(t.paid > 0 ? t.balance : t.total), true);
+    pair('Due Date', longDate(inv.dueDate));
+    hline(p, plX, qy - 11, amtR, { color: [0.85, 0.86, 0.9] });
+    pair('Amount Enclosed', '');
+    text(p, amtR, qy + 5, 'Enter the amount you are paying above', { size: 7.5, color: GREY, align: 'right' });
+
+    return assemble(pages, img);
   }
 
   // Build the PDF byte string from page content streams.
-  function assemble(pages) {
+  function assemble(pages, img) {
     let pdf = '%PDF-1.4\n';
     const off = {};
     function obj(n, body) { off[n] = pdf.length; pdf += `${n} 0 obj\n${body}\nendobj\n`; }
+    const N = pages.length;
+    const imgNum = img ? 5 + N * 2 : 0;
+    const xobj = img ? ` /XObject << /Img0 ${imgNum} 0 R >>` : '';
+    const proc = img ? '/PDF /Text /ImageC' : '/PDF /Text';
     const pageNums = pages.map((_, i) => 5 + i * 2);
     obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
-    obj(2, `<< /Type /Pages /Kids [${pageNums.map((n) => n + ' 0 R').join(' ')}] /Count ${pages.length} >>`);
+    obj(2, `<< /Type /Pages /Kids [${pageNums.map((n) => n + ' 0 R').join(' ')}] /Count ${N} >>`);
     obj(3, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
     obj(4, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
     pages.forEach((pg, i) => {
       const pn = 5 + i * 2, cn = 6 + i * 2;
       obj(pn, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PAGE_W.toFixed(2)} ${PAGE_H.toFixed(2)}] ` +
-        `/Resources << /Font << /F1 3 0 R /F2 4 0 R >> /ProcSet [/PDF /Text] >> /Contents ${cn} 0 R >>`);
+        `/Resources << /Font << /F1 3 0 R /F2 4 0 R >>${xobj} /ProcSet [${proc}] >> /Contents ${cn} 0 R >>`);
       const stream = pg.ops.join('\n');
       obj(cn, `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`);
     });
-    const size = 5 + pages.length * 2;
+    if (img) {
+      obj(imgNum, `<< /Type /XObject /Subtype /Image /Width ${img.pxW} /Height ${img.pxH} ` +
+        `/ColorSpace /DeviceRGB /BitsPerComponent 8 /Length ${img.bin.length} >>\nstream\n${img.bin}\nendstream`);
+    }
+    const size = (img ? imgNum : 4 + N * 2) + 1;
     const xref = pdf.length;
     pdf += `xref\n0 ${size}\n0000000000 65535 f \n`;
     for (let n = 1; n < size; n++) pdf += String(off[n]).padStart(10, '0') + ' 00000 n \n';
@@ -891,6 +968,7 @@ const Pdf = (() => {
       <div class="invoice-doc" id="printArea">
         <div class="doc-head">
           <div>
+            ${s.logo ? `<img class="doc-logo" src="${s.logo}" alt="logo">` : ''}
             <div class="doc-biz">${esc(s.businessName)}</div>
             ${s.address ? `<div class="doc-muted">${esc(s.address).replace(/\n/g, '<br>')}</div>` : ''}
             ${s.email ? `<div class="doc-muted">${esc(s.email)}</div>` : ''}
@@ -914,6 +992,7 @@ const Pdf = (() => {
           <div class="doc-dates">
             <div><span class="doc-label">Issued</span> ${Util.formatDate(inv.issueDate)}</div>
             <div><span class="doc-label">Due</span> ${Util.formatDate(inv.dueDate)}</div>
+            ${inv.reference ? `<div><span class="doc-label">Ref</span> ${esc(inv.reference)}</div>` : ''}
           </div>
         </div>
 
@@ -1040,6 +1119,7 @@ const Pdf = (() => {
     if (isNew) {
       draft = {
         id: null, number: null, clientId: clients[0] ? clients[0].id : '',
+        reference: '',
         issueDate: Util.todayISO(),
         dueDate: Util.addDays(Util.todayISO(), s.paymentTerms),
         lineItems: [blankLine()], gstRate: s.gstRate, status: 'draft',
@@ -1090,6 +1170,9 @@ const Pdf = (() => {
           <div><label>Due date</label><input type="date" id="dueDate" value="${draft.dueDate}"></div>
         </div>
 
+        <label>Reference / PO number</label>
+        <input type="text" id="reference" value="${esc(draft.reference || '')}" placeholder="e.g. PO# 200489">
+
         <label>Line items</label>
         <div id="lineItems">${lineRows()}</div>
         <button class="btn small" id="addLine">+ Add line</button>
@@ -1113,6 +1196,7 @@ const Pdf = (() => {
     function syncFromInputs() {
       draft.issueDate = $('#issueDate').value;
       draft.dueDate = $('#dueDate').value;
+      draft.reference = $('#reference').value;
       draft.gstRate = Number($('#gstRate').value) || 0;
       draft.notes = $('#notes').value;
     }
@@ -1252,6 +1336,17 @@ const Pdf = (() => {
         <label>GST number</label><input id="s_gst" value="${esc(s.gstNumber)}">
         <label>Bank account / payment details</label><input id="s_bank" value="${esc(s.bankAccount)}">
 
+        <label>Business logo</label>
+        <div class="logo-row">
+          <div class="logo-box">${s.logo ? `<img src="${s.logo}" alt="logo">` : '<span class="hint">None</span>'}</div>
+          <div class="logo-actions">
+            <button class="btn small" id="logoBtn" type="button">${s.logo ? 'Change' : 'Upload'}</button>
+            ${s.logo ? '<button class="btn small danger-text" id="logoRemove" type="button">Remove</button>' : ''}
+          </div>
+        </div>
+        <input type="file" id="logoFile" accept="image/*" hidden>
+        <p class="hint">Appears at the top-right of your PDF invoices. A wide/landscape logo looks best.</p>
+
         <h2 class="section-title">Invoice defaults</h2>
         <div class="two-col">
           <div><label>GST rate (%)</label><input id="s_gstrate" type="number" step="0.01" value="${s.gstRate}"></div>
@@ -1310,7 +1405,45 @@ const Pdf = (() => {
       };
       reader.readAsText(file);
     };
+    $('#logoBtn').onclick = () => $('#logoFile').click();
+    $('#logoFile').onchange = (e) => { if (e.target.files[0]) processLogo(e.target.files[0]); };
+    const logoRm = $('#logoRemove');
+    if (logoRm) logoRm.onclick = () => {
+      Store.saveSettings({ logo: '', logoData: '', logoW: 0, logoH: 0 });
+      toast('Logo removed'); settingsView();
+    };
     updateTabBar();
+  }
+
+  // Read an image file, downscale it, and store both a PNG preview (for the
+  // screen) and raw RGB bytes (for embedding in the PDF) in settings.
+  function processLogo(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const im = new Image();
+      im.onload = () => {
+        try {
+          const maxDim = 240;
+          const scale = Math.min(1, maxDim / Math.max(im.width, im.height));
+          const w = Math.max(1, Math.round(im.width * scale));
+          const h = Math.max(1, Math.round(im.height * scale));
+          const c = document.createElement('canvas'); c.width = w; c.height = h;
+          const cx = c.getContext('2d');
+          cx.fillStyle = '#fff'; cx.fillRect(0, 0, w, h);
+          cx.drawImage(im, 0, 0, w, h);
+          const preview = c.toDataURL('image/png');
+          const px = cx.getImageData(0, 0, w, h).data;
+          const arr = new Array(w * h);
+          for (let i = 0, j = 0; i < px.length; i += 4, j++)
+            arr[j] = String.fromCharCode(px[i], px[i + 1], px[i + 2]);
+          Store.saveSettings({ logo: preview, logoData: btoa(arr.join('')), logoW: w, logoH: h });
+          toast('Logo saved'); settingsView();
+        } catch (err) { alert('Could not process that image: ' + err.message); }
+      };
+      im.onerror = () => alert('Could not read that image file.');
+      im.src = reader.result;
+    };
+    reader.readAsDataURL(file);
   }
 
   /* ============================ Modal & toast ============================ */
