@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
   <title>Invoices</title>
   <meta name="theme-color" content="#0a84ff">
-  <!-- Single-file build: open directly in Safari, or Add to Home Screen. -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -480,6 +479,226 @@ const Util = (() => {
 
   </script>
   <script>
+/*
+ * pdf.js — tiny dependency-free PDF generator tailored to an invoice.
+ * Produces a real, vector (selectable-text) A4 PDF using the standard
+ * Helvetica fonts, so there is nothing to download and it works offline.
+ */
+const Pdf = (() => {
+  const PAGE_W = 595.28, PAGE_H = 841.89, M = 42; // A4 points, margin
+  const ACCENT = [0.04, 0.52, 1.0];
+  const GREY = [0.45, 0.45, 0.47];
+  const BLACK = [0, 0, 0];
+  const LINE = [0.82, 0.85, 0.9];
+
+  // Helvetica glyph widths (per 1000 units) for ASCII 32..126.
+  const W = (() => {
+    const a = {};
+    const data = '278 278 355 556 556 889 667 191 333 333 389 584 278 333 278 278 ' + // 32-47
+      '556 556 556 556 556 556 556 556 556 556 278 278 584 584 584 556 ' +            // 48-63
+      '1015 667 667 722 722 667 611 778 722 278 500 667 556 833 722 778 ' +           // 64-79
+      '667 778 722 667 611 722 667 944 667 667 611 278 278 278 469 556 ' +            // 80-95
+      '333 556 556 500 556 556 278 556 556 222 222 500 222 833 556 556 ' +            // 96-111
+      '556 556 333 500 278 556 500 722 500 500 500 334 260 334 584';                  // 112-126
+    data.split(' ').forEach((v, i) => { a[32 + i] = +v; });
+    return a;
+  })();
+  function charW(code) { return W[code] || 556; }
+  function strWidth(str, size) {
+    let w = 0;
+    for (let i = 0; i < str.length; i++) w += charW(str.charCodeAt(i));
+    return w * size / 1000;
+  }
+
+  // Normalise to Latin-1 (strip macrons/diacritics, fix smart punctuation)
+  // and escape PDF specials.
+  function clean(s) {
+    s = String(s == null ? '' : s).normalize('NFKD').replace(/[̀-ͯ]/g, '')
+      .replace(/[‒-―]/g, '-')       // dashes
+      .replace(/[‘’‚′]/g, "'") // single quotes
+      .replace(/[“”„″]/g, '"') // double quotes
+      .replace(/…/g, '...')               // ellipsis
+      .replace(/[•]/g, '-');              // bullet
+    let out = '';
+    for (const ch of s) {
+      const c = ch.codePointAt(0);
+      if (c === 0x28) out += '\\(';
+      else if (c === 0x29) out += '\\)';
+      else if (c === 0x5c) out += '\\\\';
+      else if (c === 9) out += ' ';
+      else if (c < 32 || c > 255) out += '?';
+      else out += ch;
+    }
+    return out;
+  }
+
+  function makePage() { return { ops: [] }; }
+  function setColor(p, c) { p.ops.push(`${c[0]} ${c[1]} ${c[2]} rg`); }
+  function text(p, x, topY, str, opt = {}) {
+    const size = opt.size || 10;
+    const font = opt.bold ? 'F2' : 'F1';
+    let xx = x;
+    if (opt.align === 'right') xx = x - strWidth(String(str), size);
+    else if (opt.align === 'center') xx = x - strWidth(String(str), size) / 2;
+    setColor(p, opt.color || BLACK);
+    p.ops.push(`BT /${font} ${size} Tf 1 0 0 1 ${xx.toFixed(2)} ${(PAGE_H - topY).toFixed(2)} Tm (${clean(str)}) Tj ET`);
+  }
+  function hline(p, x1, topY, x2, opt = {}) {
+    const c = opt.color || LINE;
+    p.ops.push(`${(opt.width || 0.7)} w ${c[0]} ${c[1]} ${c[2]} RG ` +
+      `${x1.toFixed(2)} ${(PAGE_H - topY).toFixed(2)} m ${x2.toFixed(2)} ${(PAGE_H - topY).toFixed(2)} l S`);
+  }
+  function wrap(str, maxW, size) {
+    const words = String(str || '').split(/\s+/);
+    const lines = [];
+    let cur = '';
+    for (const w of words) {
+      const test = cur ? cur + ' ' + w : w;
+      if (strWidth(test, size) > maxW && cur) { lines.push(cur); cur = w; }
+      else cur = test;
+    }
+    if (cur) lines.push(cur);
+    return lines.length ? lines : [''];
+  }
+
+  /* data: { inv, settings, client, totals, statusLabel, money, formatDate } */
+  function generate(data) {
+    const { inv, settings: s, client, totals: t, money, formatDate } = data;
+    const pages = [];
+    let p = makePage(); pages.push(p);
+
+    // ---- Header ----
+    text(p, M, 56, s.businessName || 'My Business', { size: 19, bold: true, color: ACCENT });
+    text(p, PAGE_W - M, 52, 'TAX INVOICE', { size: 11, bold: true, color: GREY, align: 'right' });
+    text(p, PAGE_W - M, 72, inv.number || 'DRAFT', { size: 15, bold: true, align: 'right' });
+    if (data.statusLabel)
+      text(p, PAGE_W - M, 88, data.statusLabel, { size: 9, color: GREY, align: 'right' });
+
+    let ly = 78;
+    const lh = 12.5;
+    const leftLines = [];
+    (s.address || '').split('\n').forEach((l) => l.trim() && leftLines.push(l));
+    if (s.email) leftLines.push(s.email);
+    if (s.phone) leftLines.push(s.phone);
+    if (s.gstNumber) leftLines.push('GST: ' + s.gstNumber);
+    leftLines.forEach((l) => { text(p, M, ly, l, { size: 9, color: GREY }); ly += lh; });
+
+    let y = Math.max(ly, 100) + 8;
+    hline(p, M, y, PAGE_W - M); y += 22;
+
+    // ---- Bill to / dates ----
+    const billTop = y;
+    text(p, M, y, 'BILL TO', { size: 8, bold: true, color: GREY }); y += 14;
+    text(p, M, y, client ? client.name : '—', { size: 11, bold: true }); y += 13;
+    if (client && client.email) { text(p, M, y, client.email, { size: 9, color: GREY }); y += 12; }
+    if (client && client.address)
+      client.address.split('\n').forEach((l) => { if (l.trim()) { text(p, M, y, l, { size: 9, color: GREY }); y += 12; } });
+
+    const dx = PAGE_W - M;
+    text(p, dx - 78, billTop, 'Issued', { size: 9, color: GREY });
+    text(p, dx, billTop, formatDate(inv.issueDate), { size: 9, align: 'right' });
+    text(p, dx - 78, billTop + 14, 'Due', { size: 9, color: GREY });
+    text(p, dx, billTop + 14, formatDate(inv.dueDate), { size: 9, align: 'right' });
+
+    y = Math.max(y, billTop + 32) + 16;
+
+    // ---- Table ----
+    const colAmt = PAGE_W - M, colUnit = 470, colQty = 392, descMax = colQty - 70 - M;
+    function tableHeader() {
+      text(p, M, y, 'DESCRIPTION', { size: 8, bold: true, color: GREY });
+      text(p, colQty, y, 'QTY', { size: 8, bold: true, color: GREY, align: 'right' });
+      text(p, colUnit, y, 'UNIT', { size: 8, bold: true, color: GREY, align: 'right' });
+      text(p, colAmt, y, 'AMOUNT', { size: 8, bold: true, color: GREY, align: 'right' });
+      y += 6; hline(p, M, y, PAGE_W - M); y += 14;
+    }
+    tableHeader();
+
+    (inv.lineItems || []).forEach((li) => {
+      const qty = Number(li.quantity) || 0, unit = Number(li.unitPrice) || 0;
+      const dlines = wrap(li.description || '', descMax, 10);
+      const rowH = dlines.length * 13 + 10;
+      if (y > PAGE_H - 180) { // not enough room — new page
+        p = makePage(); pages.push(p); y = 56; tableHeader();
+      }
+      dlines.forEach((l, i) => text(p, M, y + i * 13, l, { size: 10 }));
+      text(p, colQty, y, String(qty), { size: 10, align: 'right' });
+      text(p, colUnit, y, money(unit), { size: 10, align: 'right' });
+      text(p, colAmt, y, money(qty * unit), { size: 10, align: 'right' });
+      hline(p, M, y + (dlines.length - 1) * 13 + 6, PAGE_W - M); // separator in the gap
+      y += rowH;
+    });
+
+    // ---- Totals ----
+    y += 18;
+    const labX = colUnit, valX = colAmt;
+    function totalRow(label, value, bold) {
+      text(p, labX, y, label, { size: bold ? 11 : 10, bold, color: bold ? BLACK : GREY, align: 'right' });
+      text(p, valX, y, value, { size: bold ? 11 : 10, bold, align: 'right' });
+      y += bold ? 19 : 15;
+    }
+    totalRow('Subtotal', money(t.subtotal));
+    totalRow(`GST (${t.rate}%)`, money(t.gst));
+    y += 4; hline(p, labX - 40, y - 11, PAGE_W - M);
+    totalRow('Total', money(t.total), true);
+    if (t.paid > 0) {
+      totalRow('Paid', '-' + money(t.paid));
+      y += 4; hline(p, labX - 40, y - 11, PAGE_W - M);
+      totalRow('Balance due', money(t.balance), true);
+    }
+
+    // ---- Footer (payment + notes), stacked upward from the bottom margin ----
+    let fy = PAGE_H - M;
+    if (inv.notes) {
+      const nlines = wrap(inv.notes, PAGE_W - 2 * M, 9);
+      for (let i = nlines.length - 1; i >= 0; i--) {
+        text(p, M, fy, nlines[i], { size: 9, color: GREY });
+        fy -= 11;
+      }
+      fy -= 5;
+    }
+    if (s.bankAccount) {
+      text(p, M, fy, 'Payment to: ' + s.bankAccount, { size: 9.5 });
+    }
+
+    return assemble(pages);
+  }
+
+  // Build the PDF byte string from page content streams.
+  function assemble(pages) {
+    let pdf = '%PDF-1.4\n';
+    const off = {};
+    function obj(n, body) { off[n] = pdf.length; pdf += `${n} 0 obj\n${body}\nendobj\n`; }
+    const pageNums = pages.map((_, i) => 5 + i * 2);
+    obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
+    obj(2, `<< /Type /Pages /Kids [${pageNums.map((n) => n + ' 0 R').join(' ')}] /Count ${pages.length} >>`);
+    obj(3, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
+    obj(4, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
+    pages.forEach((pg, i) => {
+      const pn = 5 + i * 2, cn = 6 + i * 2;
+      obj(pn, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PAGE_W.toFixed(2)} ${PAGE_H.toFixed(2)}] ` +
+        `/Resources << /Font << /F1 3 0 R /F2 4 0 R >> /ProcSet [/PDF /Text] >> /Contents ${cn} 0 R >>`);
+      const stream = pg.ops.join('\n');
+      obj(cn, `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`);
+    });
+    const size = 5 + pages.length * 2;
+    const xref = pdf.length;
+    pdf += `xref\n0 ${size}\n0000000000 65535 f \n`;
+    for (let n = 1; n < size; n++) pdf += String(off[n]).padStart(10, '0') + ' 00000 n \n';
+    pdf += `trailer\n<< /Size ${size} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+    return pdf;
+  }
+
+  function toBytes(pdfStr) {
+    const b = new Uint8Array(pdfStr.length);
+    for (let i = 0; i < pdfStr.length; i++) b[i] = pdfStr.charCodeAt(i) & 0xff;
+    return b;
+  }
+
+  return { generate, toBytes };
+})();
+
+  </script>
+  <script>
 /* app.js — UI, routing and interactions for the invoicing PWA. */
 (() => {
   const $ = (sel, root = document) => root.querySelector(sel);
@@ -720,7 +939,7 @@ const Util = (() => {
         ${st !== 'paid' ? `<button class="btn primary block" data-action="record-payment">＄ Record payment</button>` : ''}
         ${inv.status === 'draft' ? `<button class="btn block" data-action="mark-sent">Mark as sent</button>` : ''}
         <div class="btn-grid">
-          <button class="btn" data-action="share">Share / PDF</button>
+          <button class="btn" data-action="pdf">📄 Save / send PDF</button>
           <button class="btn" data-action="edit">Edit</button>
         </div>
         ${(inv.payments && inv.payments.length) ? `<h2 class="section-title">Payments</h2><div class="pay-list">${payments}</div>` : ''}
@@ -735,7 +954,7 @@ const Util = (() => {
     };
     const payBtn = $('[data-action="record-payment"]');
     if (payBtn) payBtn.onclick = () => paymentModal(inv);
-    $('[data-action="share"]').onclick = () => shareInvoice(inv);
+    $('[data-action="pdf"]').onclick = () => exportPdf(inv);
     $('[data-action="delete"]').onclick = () => {
       if (confirm('Delete this invoice? This cannot be undone.')) {
         Store.deleteInvoice(id); go('/invoices');
@@ -748,17 +967,34 @@ const Util = (() => {
     updateTabBar();
   }
 
-  function shareInvoice(inv) {
-    const client = Store.getClient(inv.clientId);
-    const t = Util.totals(inv);
-    const text = `Invoice ${inv.number} for ${client ? client.name : ''}\n` +
-      `Total ${Util.money(t.total)} · Due ${Util.formatDate(inv.dueDate)}` +
-      (t.balance < t.total ? `\nBalance ${Util.money(t.balance)}` : '');
-    if (navigator.share) {
-      navigator.share({ title: 'Invoice ' + inv.number, text }).catch(() => {});
-    } else {
-      // Fall back to the browser print dialog (Save to PDF on iOS).
-      window.print();
+  // Build a real PDF of the invoice and hand it to the OS share sheet
+  // (Save to Files / email), falling back to a direct download.
+  function exportPdf(inv) {
+    try {
+      const s = Store.getSettings();
+      const client = Store.getClient(inv.clientId);
+      const t = Util.totals(inv);
+      const statusLabel = Util.STATUS_LABEL[Util.status(inv)];
+      const pdfStr = Pdf.generate({
+        inv, settings: s, client, totals: t, statusLabel,
+        money: Util.money, formatDate: Util.formatDate,
+      });
+      const filename = 'Invoice-' + String(inv.number || 'draft').replace(/[^\w-]/g, '') + '.pdf';
+      const blob = new Blob([Pdf.toBytes(pdfStr)], { type: 'application/pdf' });
+
+      let file = null;
+      try { file = new File([blob], filename, { type: 'application/pdf' }); } catch (e) { /* older browsers */ }
+      if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: filename }).catch(() => {});
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch (e) {
+      alert('Sorry, the PDF could not be created: ' + (e && e.message));
     }
   }
 
