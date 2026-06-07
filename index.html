@@ -4,233 +4,374 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
   <title>Invoices</title>
+  <meta name="description" content="Simple invoicing & payment tracking for small business.">
   <meta name="theme-color" content="#0a84ff">
+
+  <!-- iOS home-screen / PWA -->
+  
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Invoices">
   <link rel="apple-touch-icon" href="data:image/png;base64,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">
   <link rel="icon" href="data:image/png;base64,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">
+
   <style>
+/* ===================================================================
+   Design system — tokens
+   =================================================================== */
 :root {
-  --bg: #f2f2f7;
+  /* Brand */
+  --primary: #5b50e6;
+  --primary-strong: #4b40d8;
+  --primary-grad: linear-gradient(135deg, #6d63f4 0%, #5b50e6 50%, #8b5cf6 100%);
+  --primary-tint: rgba(91, 80, 230, 0.10);
+  --on-primary: #ffffff;
+
+  /* Surfaces */
+  --bg: #f3f4fb;
   --card: #ffffff;
-  --text: #1c1c1e;
-  --muted: #8e8e93;
-  --line: #e5e5ea;
-  --accent: #0a84ff;
-  --green: #34c759;
-  --red: #ff3b30;
-  --orange: #ff9500;
-  --radius: 14px;
+  --card-2: #f8f8fd;
+  --text: #16162a;
+  --muted: #717189;
+  --line: #ebebf3;
+
+  /* Semantic */
+  --green: #10b981;
+  --amber: #f59e0b;
+  --red: #ef4444;
+  --blue: #3b82f6;
+  --green-tint: rgba(16, 185, 129, 0.14);
+  --amber-tint: rgba(245, 158, 11, 0.16);
+  --red-tint: rgba(239, 68, 68, 0.14);
+  --blue-tint: rgba(59, 130, 246, 0.14);
+
+  /* Elevation */
+  --shadow-sm: 0 1px 2px rgba(20, 20, 50, 0.05), 0 1px 3px rgba(20, 20, 50, 0.04);
+  --shadow-md: 0 6px 18px rgba(20, 20, 50, 0.08);
+  --shadow-primary: 0 8px 20px rgba(91, 80, 230, 0.32);
+
+  --radius: 18px;
+  --radius-sm: 12px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #000000; --card: #1c1c1e; --text: #ffffff; --muted: #98989f;
-    --line: #38383a;
+    --bg: #0a0a12;
+    --card: #16161f;
+    --card-2: #1d1d29;
+    --text: #f3f3f8;
+    --muted: #9a9ab2;
+    --line: #292935;
+    --primary-tint: rgba(124, 112, 255, 0.18);
+    --shadow-sm: none;
+    --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.45);
+    --shadow-primary: 0 8px 22px rgba(0, 0, 0, 0.55);
   }
 }
+
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; padding: 0; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background: var(--bg); color: var(--text);
-  font-size: 17px; line-height: 1.4;
-  padding-bottom: calc(64px + var(--safe-bottom));
+  background: var(--bg);
+  color: var(--text);
+  font-size: 17px;
+  line-height: 1.4;
+  padding-bottom: calc(72px + var(--safe-bottom));
+  -webkit-font-smoothing: antialiased;
 }
-h1 { font-size: 28px; font-weight: 700; margin: 0; }
-h2.section-title { font-size: 15px; text-transform: uppercase; letter-spacing: .04em;
-  color: var(--muted); margin: 22px 16px 8px; font-weight: 600; }
+h1 { font-size: 30px; font-weight: 800; letter-spacing: -0.02em; margin: 0; }
+h2.section-title {
+  font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--muted); margin: 26px 18px 10px; font-weight: 700;
+}
 input, select, textarea, button { font-family: inherit; font-size: 17px; }
 
-/* Layout */
 #view { padding: 0 0 24px; max-width: 720px; margin: 0 auto; }
+
+/* ===================================================================
+   Top bar
+   =================================================================== */
 .topbar {
   display: flex; align-items: flex-end; justify-content: space-between;
-  padding: calc(12px + var(--safe-top)) 16px 8px; gap: 12px;
+  padding: calc(16px + var(--safe-top)) 18px 6px; gap: 12px;
 }
 .topbar-actions { display: flex; gap: 8px; align-items: center; }
 
-/* Cards / dashboard */
-.cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 8px 16px; }
-.card { background: var(--card); border-radius: var(--radius); padding: 16px;
-  display: flex; flex-direction: column; gap: 4px; }
-.card.big { grid-column: 1 / -1; }
-.card.accent { background: var(--accent); color: #fff; }
-.card-label { font-size: 13px; color: var(--muted); }
-.card.accent .card-label, .card.accent .card-sub { color: rgba(255,255,255,.85); }
-.card-value { font-size: 26px; font-weight: 700; }
-.card.big .card-value { font-size: 34px; }
+/* ===================================================================
+   Dashboard cards
+   =================================================================== */
+.cards { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; padding: 10px 18px; }
+.card {
+  background: var(--card); border-radius: var(--radius); padding: 16px;
+  display: flex; flex-direction: column; gap: 5px; box-shadow: var(--shadow-sm);
+  position: relative; overflow: hidden;
+}
+.card.big { grid-column: 1 / -1; padding: 22px; }
+.card.accent {
+  background: var(--primary-grad); color: #fff; box-shadow: var(--shadow-primary);
+}
+.card.accent::after {
+  content: ""; position: absolute; right: -40px; top: -40px;
+  width: 160px; height: 160px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+}
+.card-ico {
+  width: 34px; height: 34px; border-radius: 10px; display: flex;
+  align-items: center; justify-content: center; font-size: 18px;
+  background: var(--primary-tint); margin-bottom: 4px;
+}
+.card-label { font-size: 13px; color: var(--muted); font-weight: 500; }
+.card.accent .card-label, .card.accent .card-sub { color: rgba(255, 255, 255, 0.9); }
+.card-value { font-size: 27px; font-weight: 800; letter-spacing: -0.02em; }
+.card.big .card-value { font-size: 40px; }
 .card-sub { font-size: 13px; color: var(--muted); }
 
-/* Lists */
-.list { background: var(--card); border-radius: var(--radius); margin: 8px 16px;
-  overflow: hidden; }
-.row { display: flex; align-items: center; justify-content: space-between;
-  padding: 13px 16px; border-bottom: 1px solid var(--line); text-decoration: none;
-  color: var(--text); cursor: pointer; gap: 12px; }
+/* ===================================================================
+   Lists & rows
+   =================================================================== */
+.list {
+  background: var(--card); border-radius: var(--radius); margin: 10px 18px;
+  overflow: hidden; box-shadow: var(--shadow-sm);
+}
+.row {
+  display: flex; align-items: center; gap: 13px;
+  padding: 14px 16px; border-bottom: 1px solid var(--line);
+  text-decoration: none; color: var(--text); cursor: pointer;
+  transition: background 0.15s;
+}
 .row:last-child { border-bottom: none; }
-.row:active { background: var(--line); }
-.row-main { display: flex; flex-direction: column; min-width: 0; }
-.row-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.row-sub { font-size: 13px; color: var(--muted); }
-.row-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
-.row-amount { font-weight: 600; }
+.row:active { background: var(--card-2); }
+.row-main { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.row-title { font-weight: 650; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row-sub { font-size: 13px; color: var(--muted); margin-top: 1px; }
+.row-right { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; margin-left: auto; }
+.row-amount { font-weight: 700; font-size: 16px; }
 
-/* Pills */
-.pill { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 20px;
-  background: var(--line); color: var(--muted); white-space: nowrap; }
-.pill.paid { background: rgba(52,199,89,.18); color: var(--green); }
-.pill.sent { background: rgba(10,132,255,.16); color: var(--accent); }
-.pill.partial { background: rgba(255,149,0,.18); color: var(--orange); }
-.pill.overdue { background: rgba(255,59,48,.16); color: var(--red); }
+.avatar {
+  width: 42px; height: 42px; border-radius: 13px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 15px; color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+}
+
+/* ===================================================================
+   Status pills
+   =================================================================== */
+.pill {
+  font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 30px;
+  background: var(--line); color: var(--muted); white-space: nowrap; letter-spacing: 0.01em;
+}
+.pill.paid { background: var(--green-tint); color: var(--green); }
+.pill.sent { background: var(--blue-tint); color: var(--blue); }
+.pill.partial { background: var(--amber-tint); color: var(--amber); }
+.pill.overdue { background: var(--red-tint); color: var(--red); }
 .pill.draft { background: var(--line); color: var(--muted); }
 
-/* Chips */
-.chips { display: flex; gap: 8px; padding: 4px 16px 4px; overflow-x: auto; }
-.chip { border: none; background: var(--card); color: var(--text); padding: 7px 14px;
-  border-radius: 20px; font-size: 14px; white-space: nowrap; }
-.chip.active { background: var(--accent); color: #fff; }
+/* ===================================================================
+   Filter chips
+   =================================================================== */
+.chips { display: flex; gap: 8px; padding: 6px 18px; overflow-x: auto; scrollbar-width: none; }
+.chips::-webkit-scrollbar { display: none; }
+.chip {
+  border: none; background: var(--card); color: var(--text); padding: 8px 15px;
+  border-radius: 30px; font-size: 14px; font-weight: 600; white-space: nowrap;
+  box-shadow: var(--shadow-sm); transition: transform 0.1s;
+}
+.chip:active { transform: scale(0.95); }
+.chip.active { background: var(--primary); color: #fff; box-shadow: var(--shadow-primary); }
 
-/* Buttons */
-.btn { border: none; background: var(--card); color: var(--accent); padding: 13px 16px;
-  border-radius: var(--radius); font-weight: 600; cursor: pointer; }
-.btn:active { opacity: .7; }
-.btn.primary { background: var(--accent); color: #fff; }
-.btn.block { display: block; width: calc(100% - 32px); margin: 12px 16px; }
-.btn.small { font-size: 15px; padding: 9px 14px; margin: 4px 0 0; }
-.btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 0 16px; margin: 12px 0; }
+/* ===================================================================
+   Buttons
+   =================================================================== */
+.btn {
+  border: none; background: var(--card); color: var(--primary);
+  padding: 14px 18px; border-radius: 14px; font-weight: 700; cursor: pointer;
+  box-shadow: var(--shadow-sm); transition: transform 0.1s, opacity 0.15s;
+}
+.btn:active { transform: scale(0.98); opacity: 0.9; }
+.btn.primary { background: var(--primary-grad); color: #fff; box-shadow: var(--shadow-primary); }
+.btn.block { display: block; width: calc(100% - 36px); margin: 14px 18px; text-align: center; }
+.btn.small { font-size: 15px; padding: 9px 15px; box-shadow: none; background: var(--primary-tint); }
+.btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 0 18px; margin: 14px 0; }
 .btn-grid .btn { margin: 0; }
-.btn.danger-text { color: var(--red); background: transparent; }
-.icon-btn { border: none; background: transparent; color: var(--accent);
-  font-size: 24px; line-height: 1; padding: 4px 8px; cursor: pointer; }
-.link { background: none; border: none; color: var(--accent); font-size: 17px; cursor: pointer; padding: 4px; }
+.btn.danger-text { color: var(--red); background: transparent; box-shadow: none; }
+.icon-btn {
+  border: none; background: var(--primary-tint); color: var(--primary);
+  width: 38px; height: 38px; border-radius: 12px; font-size: 22px; line-height: 1;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.link { background: none; border: none; color: var(--primary); font-size: 17px; font-weight: 600; cursor: pointer; padding: 4px; }
 .link.danger { color: var(--red); font-size: 14px; margin-left: 8px; }
 
-/* Forms */
-.form { padding: 0 16px; }
-.form label { display: block; font-size: 13px; color: var(--muted); margin: 16px 0 6px; }
+/* Floating action button */
+.fab {
+  position: fixed; right: 18px; bottom: calc(84px + var(--safe-bottom));
+  width: 58px; height: 58px; border-radius: 19px; z-index: 60;
+  background: var(--primary-grad); color: #fff;
+  display: none; align-items: center; justify-content: center;
+  box-shadow: 0 10px 24px rgba(91, 80, 230, 0.5); text-decoration: none;
+  transition: transform 0.12s;
+}
+.fab:active { transform: scale(0.92); }
+.fab svg { width: 26px; height: 26px; }
+body[data-section="dashboard"] .fab,
+body[data-section="invoices"] .fab { display: flex; }
+
+/* ===================================================================
+   Forms
+   =================================================================== */
+.form { padding: 0 18px; }
+.form label { display: block; font-size: 13px; color: var(--muted); font-weight: 600; margin: 18px 0 7px; }
 .form input, .form select, .form textarea {
-  width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 10px;
-  background: var(--card); color: var(--text); }
+  width: 100%; padding: 13px 14px; border: 1.5px solid var(--line); border-radius: 12px;
+  background: var(--card); color: var(--text); transition: border-color 0.15s, box-shadow 0.15s;
+}
+.form input:focus, .form select:focus, .form textarea:focus {
+  outline: none; border-color: var(--primary); box-shadow: 0 0 0 3.5px var(--primary-tint);
+}
 .form textarea { resize: vertical; }
 .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .inline { display: flex; gap: 8px; }
 .hint { font-size: 13px; color: var(--muted); margin: 8px 0; }
 
 /* Line items */
-.line-item { background: var(--card); border-radius: 10px; padding: 10px; margin-bottom: 8px;
-  border: 1px solid var(--line); }
-.li-desc { margin-bottom: 8px; }
+.line-item { background: var(--card); border-radius: 14px; padding: 12px; margin-bottom: 10px; box-shadow: var(--shadow-sm); }
+.li-desc { margin-bottom: 9px; }
 .li-row { display: flex; align-items: center; gap: 6px; }
 .li-qty { width: 64px; } .li-price { width: 96px; }
 .li-x { color: var(--muted); }
-.li-amt { margin-left: auto; font-weight: 600; font-size: 15px; }
+.li-amt { margin-left: auto; font-weight: 700; font-size: 15px; }
 .li-del { border: none; background: transparent; color: var(--red); font-size: 16px; padding: 4px 6px; }
-.totals-bar { background: var(--card); border-radius: 10px; padding: 12px 14px; margin-top: 12px; }
+.totals-bar { background: var(--card); border-radius: 14px; padding: 14px 16px; margin-top: 14px; box-shadow: var(--shadow-sm); }
 .totals-bar div, .doc-totals div { display: flex; justify-content: space-between; padding: 3px 0; }
-.totals-bar .grand, .doc-totals .grand { font-weight: 700; font-size: 19px;
-  border-top: 1px solid var(--line); margin-top: 6px; padding-top: 8px; }
+.totals-bar .grand, .doc-totals .grand {
+  font-weight: 800; font-size: 20px; border-top: 1px solid var(--line); margin-top: 7px; padding-top: 9px;
+}
 
-/* Logo upload */
-.logo-row { display: flex; gap: 14px; align-items: center; margin-top: 6px; }
-.logo-box { width: 128px; height: 64px; border: 1px solid var(--line); border-radius: 10px;
-  display: flex; align-items: center; justify-content: center; background: #fff; overflow: hidden; }
-.logo-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
-.logo-actions { display: flex; gap: 8px; }
-.doc-logo { max-height: 64px; max-width: 200px; object-fit: contain; display: block; margin-bottom: 10px; }
+/* ===================================================================
+   Empty state
+   =================================================================== */
+.empty { text-align: center; padding: 54px 24px; color: var(--muted); }
+.empty-icon { font-size: 50px; margin-bottom: 14px; }
+.empty .btn { display: inline-block; margin-top: 18px; background: var(--primary-grad); color: #fff; box-shadow: var(--shadow-primary); }
 
-/* Empty state */
-.empty { text-align: center; padding: 48px 24px; color: var(--muted); }
-.empty-icon { font-size: 44px; margin-bottom: 12px; }
-.empty .btn { display: inline-block; margin-top: 16px; }
-
-/* Actions on invoice view */
+/* ===================================================================
+   Invoice view
+   =================================================================== */
 .actions { margin-top: 8px; }
-.pay-list { background: var(--card); border-radius: var(--radius); margin: 8px 16px; overflow: hidden; }
-.pay-row { display: flex; justify-content: space-between; padding: 12px 16px;
-  border-bottom: 1px solid var(--line); }
+.pay-list { background: var(--card); border-radius: var(--radius); margin: 10px 18px; overflow: hidden; box-shadow: var(--shadow-sm); }
+.pay-row { display: flex; justify-content: space-between; padding: 13px 16px; border-bottom: 1px solid var(--line); }
 .pay-row:last-child { border-bottom: none; }
 
-/* Invoice document */
-.invoice-doc { background: var(--card); margin: 12px 16px; border-radius: var(--radius);
-  padding: 20px; }
+.invoice-doc { background: var(--card); margin: 14px 18px; border-radius: var(--radius); padding: 22px; box-shadow: var(--shadow-md); }
 .doc-head { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
-.doc-biz { font-size: 20px; font-weight: 700; }
+.doc-biz { font-size: 20px; font-weight: 800; }
 .doc-muted { font-size: 13px; color: var(--muted); }
 .doc-title { text-align: right; }
-.doc-tax { font-size: 13px; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
-.doc-num { font-size: 18px; font-weight: 700; margin: 2px 0 6px; }
+.doc-tax { font-size: 13px; letter-spacing: 0.08em; color: var(--muted); font-weight: 700; }
+.doc-num { font-size: 18px; font-weight: 800; margin: 2px 0 6px; }
 .doc-meta { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
-.doc-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-.doc-strong { font-weight: 600; }
+.doc-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.doc-strong { font-weight: 700; }
 .doc-dates { text-align: right; font-size: 14px; }
 .doc-table { width: 100%; border-collapse: collapse; margin: 8px 0 12px; font-size: 14px; }
-.doc-table th { text-align: left; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--line);
-  padding: 6px 4px; text-transform: uppercase; letter-spacing: .03em; }
+.doc-table th { text-align: left; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--line); padding: 6px 4px; text-transform: uppercase; letter-spacing: 0.03em; }
 .doc-table td { padding: 8px 4px; border-bottom: 1px solid var(--line); }
 .doc-table .num, td.num, th.num { text-align: right; }
 .doc-totals { margin-left: auto; max-width: 280px; }
 .doc-pay { margin-top: 16px; font-size: 14px; }
 .doc-notes { margin-top: 12px; font-size: 14px; color: var(--muted); }
 
-/* Tab bar */
-.tabbar { position: fixed; bottom: 0; left: 0; right: 0;
+/* Logo */
+.logo-row { display: flex; gap: 14px; align-items: center; margin-top: 6px; }
+.logo-box { width: 128px; height: 64px; border: 1px solid var(--line); border-radius: 12px; display: flex; align-items: center; justify-content: center; background: #fff; overflow: hidden; }
+.logo-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.logo-actions { display: flex; gap: 8px; }
+.doc-logo { max-height: 64px; max-width: 200px; object-fit: contain; display: block; margin-bottom: 10px; }
+
+/* ===================================================================
+   Tab bar
+   =================================================================== */
+.tabbar {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
   display: flex; justify-content: space-around;
-  background: color-mix(in srgb, var(--card) 92%, transparent);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  background: var(--card);
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+  backdrop-filter: saturate(180%) blur(22px);
+  -webkit-backdrop-filter: saturate(180%) blur(22px);
   border-top: 1px solid var(--line);
-  padding-bottom: var(--safe-bottom); z-index: 50; }
-.tabbar a { flex: 1; text-align: center; padding: 8px 0 6px; text-decoration: none;
-  color: var(--muted); font-size: 10px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.tabbar a .ico { font-size: 22px; line-height: 1; }
-.tabbar a.active { color: var(--accent); }
+  padding-bottom: var(--safe-bottom);
+}
+.tabbar a {
+  flex: 1; text-align: center; padding: 9px 0 7px; text-decoration: none;
+  color: var(--muted); font-size: 10.5px; font-weight: 600;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  transition: color 0.15s;
+}
+.tabbar a svg { width: 24px; height: 24px; transition: transform 0.15s; }
+.tabbar a.active { color: var(--primary); }
+.tabbar a.active svg { transform: translateY(-1px) scale(1.05); }
 
-/* Modal */
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4);
-  display: flex; align-items: flex-end; justify-content: center; z-index: 100; }
-.modal { background: var(--card); width: 100%; max-width: 480px;
-  border-radius: 18px 18px 0 0; padding: 20px 20px calc(20px + var(--safe-bottom));
-  animation: slideUp .22s ease; }
+/* ===================================================================
+   Modal & toast
+   =================================================================== */
+.modal-overlay { position: fixed; inset: 0; background: rgba(10, 10, 25, 0.45); display: flex; align-items: flex-end; justify-content: center; z-index: 100; }
+.modal { background: var(--card); width: 100%; max-width: 480px; border-radius: 22px 22px 0 0; padding: 22px 22px calc(22px + var(--safe-bottom)); animation: slideUp 0.24s ease; }
 @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-.modal h2 { margin: 0 0 4px; font-size: 20px; }
+.modal h2 { margin: 0 0 4px; font-size: 21px; font-weight: 800; }
 .modal-sub { color: var(--muted); margin: 0 0 12px; font-size: 14px; }
-.modal label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 6px; }
-.modal input { width: 100%; padding: 12px; border: 1px solid var(--line);
-  border-radius: 10px; background: var(--bg); color: var(--text); }
-.modal-actions { display: flex; gap: 12px; margin-top: 20px; }
-.modal-actions .btn { flex: 1; background: var(--bg); }
-.modal-actions .btn.primary { background: var(--accent); }
+.modal label { display: block; font-size: 13px; color: var(--muted); font-weight: 600; margin: 14px 0 6px; }
+.modal input { width: 100%; padding: 13px 14px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--bg); color: var(--text); }
+.modal input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3.5px var(--primary-tint); }
+.modal-actions { display: flex; gap: 12px; margin-top: 22px; }
+.modal-actions .btn { flex: 1; background: var(--card-2); }
+.modal-actions .btn.primary { background: var(--primary-grad); }
 
-/* Toast */
-.toast { position: fixed; bottom: calc(80px + var(--safe-bottom)); left: 50%;
-  transform: translateX(-50%) translateY(20px); background: #333; color: #fff;
-  padding: 10px 18px; border-radius: 22px; font-size: 14px; opacity: 0;
-  transition: all .3s; z-index: 200; }
+.toast { position: fixed; bottom: calc(94px + var(--safe-bottom)); left: 50%; transform: translateX(-50%) translateY(20px); background: #16162a; color: #fff; padding: 11px 20px; border-radius: 26px; font-size: 14px; font-weight: 600; opacity: 0; transition: all 0.3s; z-index: 200; box-shadow: var(--shadow-md); }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-/* Print — only the invoice document */
+/* ===================================================================
+   Print — only the invoice document
+   =================================================================== */
 @media print {
   body { background: #fff; padding: 0; }
-  .tabbar, .topbar, .actions, .no-print { display: none !important; }
+  .tabbar, .topbar, .actions, .no-print, .fab { display: none !important; }
   #view { max-width: none; }
   .invoice-doc { margin: 0; box-shadow: none; border-radius: 0; color: #000; }
   .doc-muted, .doc-label { color: #555 !important; }
 }
 
-  </style>
+</style>
 </head>
 <body>
-  <main id="view"></main>
+  <main id="view"><!-- views render here --></main>
+
+  <a class="fab" href="#/invoices/new" aria-label="New invoice">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  </a>
+
   <nav class="tabbar">
-    <a href="#/dashboard" data-tab="dashboard"><span class="ico">📊</span>Home</a>
-    <a href="#/invoices" data-tab="invoices"><span class="ico">🧾</span>Invoices</a>
-    <a href="#/clients" data-tab="clients"><span class="ico">👤</span>Clients</a>
-    <a href="#/settings" data-tab="settings"><span class="ico">⚙️</span>Settings</a>
+    <a href="#/dashboard" data-tab="dashboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span>Home</span>
+    </a>
+    <a href="#/invoices" data-tab="invoices">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
+      <span>Invoices</span>
+    </a>
+    <a href="#/clients" data-tab="clients">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <span>Clients</span>
+    </a>
+    <a href="#/settings" data-tab="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span>Settings</span>
+    </a>
   </nav>
+
   <script>
 /*
  * store.js — all data access for the invoicing app.
@@ -400,7 +541,7 @@ const Store = (() => {
   };
 })();
 
-  </script>
+</script>
   <script>
 /* util.js — formatting and money/GST/status calculations. */
 const Util = (() => {
@@ -488,7 +629,7 @@ const Util = (() => {
   };
 })();
 
-  </script>
+</script>
   <script>
 /*
  * pdf.js — tiny dependency-free PDF generator tailored to an invoice.
@@ -774,7 +915,7 @@ const Pdf = (() => {
   return { generate, toBytes };
 })();
 
-  </script>
+</script>
   <script>
 /* app.js — UI, routing and interactions for the invoicing PWA. */
 (() => {
@@ -813,9 +954,21 @@ const Pdf = (() => {
 
   function updateTabBar() {
     const section = parseHash()[0] || 'dashboard';
+    document.body.dataset.section = section;
     document.querySelectorAll('.tabbar a').forEach((a) => {
       a.classList.toggle('active', a.dataset.tab === section);
     });
+  }
+
+  // Initials + a stable colour for client avatars.
+  function initials(name) {
+    const parts = (name || '?').trim().split(/\s+/);
+    return ((parts[0] ? parts[0][0] : '') + (parts[1] ? parts[1][0] : '')).toUpperCase() || '?';
+  }
+  function avatarColor(str) {
+    let h = 0;
+    for (let i = 0; i < (str || '').length; i++) h = str.charCodeAt(i) + ((h << 5) - h);
+    return `hsl(${Math.abs(h) % 360} 62% 52%)`;
   }
 
   /* ============================ Helpers ============================ */
@@ -862,14 +1015,17 @@ const Pdf = (() => {
           <span class="card-sub">${overdue > 0 ? Util.money(overdue) + ' overdue' : 'Nothing overdue'}</span>
         </div>
         <div class="card">
+          <span class="card-ico">💰</span>
           <span class="card-label">Paid this month</span>
           <span class="card-value">${Util.money(paidThisMonth)}</span>
         </div>
         <div class="card">
+          <span class="card-ico">📊</span>
           <span class="card-label">GST this month</span>
           <span class="card-value">${Util.money(gstThisMonth)}</span>
         </div>
         <div class="card">
+          <span class="card-ico">📝</span>
           <span class="card-label">Drafts</span>
           <span class="card-value">${draftCount}</span>
         </div>
@@ -1270,9 +1426,10 @@ const Pdf = (() => {
             .filter((i) => i.clientId === c.id && Util.status(i) !== 'paid' && Util.status(i) !== 'draft')
             .reduce((sum, i) => sum + Util.totals(i).balance, 0);
           return `<a class="row" data-client="${c.id}">
+            <span class="avatar" style="background:${avatarColor(c.name)}">${esc(initials(c.name))}</span>
             <div class="row-main">
               <span class="row-title">${esc(c.name)}</span>
-              <span class="row-sub">${esc(c.email || c.phone || '')}</span>
+              <span class="row-sub">${esc(c.email || c.phone || 'No contact details')}</span>
             </div>
             <div class="row-right">${owed > 0 ? `<span class="row-amount">${Util.money(owed)}</span><span class="pill sent">owing</span>` : ''}</div>
           </a>`;
@@ -1491,6 +1648,6 @@ const Pdf = (() => {
   boot();
 })();
 
-  </script>
+</script>
 </body>
 </html>
