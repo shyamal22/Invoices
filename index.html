@@ -169,6 +169,9 @@ input, select, textarea, button { font-family: inherit; font-size: 17px; }
 .pill.partial { background: var(--amber-tint); color: var(--amber); }
 .pill.overdue { background: var(--red-tint); color: var(--red); }
 .pill.draft { background: var(--line); color: var(--muted); }
+.pill.accepted { background: var(--green-tint); color: var(--green); }
+.pill.declined { background: var(--red-tint); color: var(--red); }
+.pill.expired { background: var(--amber-tint); color: var(--amber); }
 
 /* ===================================================================
    Filter chips
@@ -218,7 +221,11 @@ input, select, textarea, button { font-family: inherit; font-size: 17px; }
 .fab:active { transform: scale(0.92); }
 .fab svg { width: 26px; height: 26px; }
 body[data-section="dashboard"] .fab,
-body[data-section="invoices"] .fab { display: flex; }
+body[data-section="invoices"] .fab,
+body[data-section="quotes"] .fab { display: flex; }
+
+/* Terms template label in settings */
+.term-label { font-size: 14px; font-weight: 700; color: var(--text); margin: 14px 0 6px; }
 
 /* ===================================================================
    Forms
@@ -349,7 +356,7 @@ body[data-section="invoices"] .fab { display: flex; }
 <body>
   <main id="view"><!-- views render here --></main>
 
-  <a class="fab" href="#/invoices/new" aria-label="New invoice">
+  <a class="fab" id="fab" href="#/invoices/new" aria-label="New">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
   </a>
 
@@ -361,6 +368,10 @@ body[data-section="invoices"] .fab { display: flex; }
     <a href="#/invoices" data-tab="invoices">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
       <span>Invoices</span>
+    </a>
+    <a href="#/quotes" data-tab="quotes">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="9 14 11 16 15 12"/></svg>
+      <span>Quotes</span>
     </a>
     <a href="#/clients" data-tab="clients">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -383,6 +394,7 @@ const Store = (() => {
     settings: 'inv_settings_v1',
     clients: 'inv_clients_v1',
     invoices: 'inv_invoices_v1',
+    quotes: 'inv_quotes_v1',
   };
 
   /*
@@ -429,6 +441,34 @@ const Store = (() => {
   }
 
   /* ---------- Settings ---------- */
+  // Preloaded, fully editable terms & conditions per quote type.
+  const COMMON_TERMS =
+    'Prices are in NZD and include GST as shown. This quotation is valid for the period stated above.\n' +
+    'Work will be scheduled on written acceptance of this quote and receipt of any agreed deposit.\n' +
+    'The client is to provide clear, safe access to the work area. Delays caused by access, services or third parties may affect timing and cost.\n' +
+    'Any change to the scope, additional works, or unforeseen ground/site conditions may incur extra charges, quoted and agreed before proceeding.\n' +
+    'Works are weather-dependent and may be rescheduled to ensure quality.';
+  const DEFAULT_QUOTE_TERMS = {
+    'Asphalt / Paving':
+      COMMON_TERMS + '\n' +
+      'Quote assumes a sound, stable, free-draining base. Remediation of soft spots or subgrade failure is additional.\n' +
+      'Minor surface irregularities, joint lines and colour variation are normal characteristics of asphalt and not defects.\n' +
+      'Please keep foot and vehicle traffic off new asphalt for at least 24–72 hours (weather dependent).\n' +
+      'Excludes line marking, drainage and resource consents unless specifically stated.',
+    'Concrete':
+      COMMON_TERMS + '\n' +
+      'Hairline/shrinkage cracking and variation in colour and surface finish are inherent characteristics of concrete and are not defects.\n' +
+      'Quote is based on a standard mix and the depth/reinforcement stated in the scope.\n' +
+      'Please keep traffic and loads off new concrete for 7 days (vehicles 28 days) to allow full cure.\n' +
+      'Excludes engineering design, consents and removal of unsuitable material unless specifically stated.',
+    'Sealing & Maintenance':
+      COMMON_TERMS + '\n' +
+      'Sealing extends surface life but does not repair structural failure. Crack filling is preventative/cosmetic.\n' +
+      'Surfaces must be clean and dry. Oil-stained or failed areas may not bond and are excluded.\n' +
+      'Please keep off treated surfaces for at least 24 hours.',
+    'General':
+      COMMON_TERMS,
+  };
   const DEFAULT_SETTINGS = {
     businessName: 'My Business',
     contactName: '',
@@ -447,9 +487,28 @@ const Store = (() => {
     invoicePrefix: 'INV-',
     nextNumber: 1,
     notes: 'Thank you for your business.',
+    // Quotes
+    quotePrefix: 'QUO-',
+    nextQuoteNumber: 1,
+    quoteValidDays: 30,
+    quoteTypes: ['Asphalt / Paving', 'Concrete', 'Sealing & Maintenance', 'General'],
+    quoteTerms: DEFAULT_QUOTE_TERMS,
+    // Separate branding for quotes (e.g. a consulting arm). Quotes use these
+    // instead of the main business details — they never fall back to the
+    // main brand, so RCK details won't appear on a KRE quote.
+    quoteBusinessName: 'KRE Consulting',
+    quoteAddress: '',
+    quoteGstNumber: '',
+    quoteEmail: '',
+    quotePhone: '',
+    quoteBankAccount: '',
+    quoteLogo: '', quoteLogoData: '', quoteLogoW: 0, quoteLogoH: 0,
   };
   function getSettings() {
-    return Object.assign({}, DEFAULT_SETTINGS, read(KEYS.settings, {}));
+    const s = Object.assign({}, DEFAULT_SETTINGS, read(KEYS.settings, {}));
+    // Ensure every known quote type has terms (merge defaults with saved).
+    s.quoteTerms = Object.assign({}, DEFAULT_QUOTE_TERMS, s.quoteTerms || {});
+    return s;
   }
   function saveSettings(patch) {
     const next = Object.assign(getSettings(), patch);
@@ -512,6 +571,36 @@ const Store = (() => {
     return number;
   }
 
+  /* ---------- Quotes ---------- */
+  function getQuotes() {
+    return read(KEYS.quotes, []).sort((a, b) =>
+      (b.issueDate || '').localeCompare(a.issueDate || ''));
+  }
+  function getQuote(id) {
+    return read(KEYS.quotes, []).find((q) => q.id === id) || null;
+  }
+  function saveQuote(q) {
+    const list = read(KEYS.quotes, []);
+    if (q.id) {
+      const i = list.findIndex((x) => x.id === q.id);
+      if (i >= 0) list[i] = q; else list.push(q);
+    } else {
+      q.id = uid();
+      list.push(q);
+    }
+    write(KEYS.quotes, list);
+    return q;
+  }
+  function deleteQuote(id) {
+    write(KEYS.quotes, read(KEYS.quotes, []).filter((q) => q.id !== id));
+  }
+  function nextQuoteNumber() {
+    const s = getSettings();
+    const number = s.quotePrefix + String(s.nextQuoteNumber).padStart(4, '0');
+    saveSettings({ nextQuoteNumber: s.nextQuoteNumber + 1 });
+    return number;
+  }
+
   /* ---------- Backup / restore ---------- */
   function exportAll() {
     return {
@@ -521,6 +610,7 @@ const Store = (() => {
       settings: getSettings(),
       clients: read(KEYS.clients, []),
       invoices: read(KEYS.invoices, []),
+      quotes: read(KEYS.quotes, []),
     };
   }
   function importAll(data) {
@@ -530,6 +620,7 @@ const Store = (() => {
     if (data.settings) write(KEYS.settings, data.settings);
     if (Array.isArray(data.clients)) write(KEYS.clients, data.clients);
     if (Array.isArray(data.invoices)) write(KEYS.invoices, data.invoices);
+    if (Array.isArray(data.quotes)) write(KEYS.quotes, data.quotes);
   }
 
   return {
@@ -537,6 +628,7 @@ const Store = (() => {
     getSettings, saveSettings,
     getClients, getClient, saveClient, deleteClient,
     getInvoices, getInvoice, saveInvoice, deleteInvoice, nextInvoiceNumber,
+    getQuotes, getQuote, saveQuote, deleteQuote, nextQuoteNumber,
     exportAll, importAll,
   };
 })();
@@ -617,6 +709,19 @@ const Util = (() => {
     partial: 'Part-paid', paid: 'Paid',
   };
 
+  /* Quote status: draft | sent | accepted | declined | expired */
+  function quoteStatus(q) {
+    if (q.status === 'accepted') return 'accepted';
+    if (q.status === 'declined') return 'declined';
+    if (q.status === 'draft' || !q.status) return 'draft';
+    if (q.validUntil && q.validUntil < todayISO()) return 'expired';
+    return 'sent';
+  }
+  const QUOTE_STATUS_LABEL = {
+    draft: 'Draft', sent: 'Sent', accepted: 'Accepted',
+    declined: 'Declined', expired: 'Expired',
+  };
+
   function escapeHtml(s) {
     return String(s == null ? '' : s)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -625,7 +730,7 @@ const Util = (() => {
 
   return {
     money, cents, todayISO, addDays, formatDate, daysBetween,
-    totals, status, STATUS_LABEL, escapeHtml,
+    totals, status, STATUS_LABEL, quoteStatus, QUOTE_STATUS_LABEL, escapeHtml,
   };
 })();
 
@@ -756,8 +861,9 @@ const Pdf = (() => {
     }
 
     // ---- Header band ----
+    const isQuote = data.docType === 'quote';
     const top = Math.max(logoBottom + 30, 100);
-    text(p, M, top, 'TAX INVOICE', { size: 22, bold: true });
+    text(p, M, top, isQuote ? 'QUOTATION' : 'TAX INVOICE', { size: 22, bold: true });
     let cy = top + 26;
     const custLines = [];
     if (client && client.name) custLines.push(client.name);
@@ -774,10 +880,18 @@ const Pdf = (() => {
       text(p, midX, my, label, { size: 9, bold: true }); my += 12;
       text(p, midX, my, value, { size: 10 }); my += 19;
     }
-    meta('Invoice Date', longDate(inv.issueDate));
-    meta('Invoice Number', inv.number || 'DRAFT');
-    meta('Reference', inv.reference);
-    meta('GST Number', s.gstNumber);
+    if (isQuote) {
+      meta('Quote Date', longDate(inv.issueDate));
+      meta('Quote Number', inv.number || 'DRAFT');
+      meta('Valid Until', longDate(inv.validUntil));
+      meta('Reference', inv.reference);
+      meta('GST Number', s.gstNumber);
+    } else {
+      meta('Invoice Date', longDate(inv.issueDate));
+      meta('Invoice Number', inv.number || 'DRAFT');
+      meta('Reference', inv.reference);
+      meta('GST Number', s.gstNumber);
+    }
 
     // Right: your business details
     const rightX = 410, rightW = PAGE_W - M - rightX;
@@ -833,42 +947,78 @@ const Pdf = (() => {
       trow('BALANCE DUE ' + cur, num(t.balance), true);
     }
 
-    // ---- Payment details ----
-    y += 24;
-    text(p, M, y, 'Due Date: ' + longDate(inv.dueDate), { size: 11, bold: true }); y += 16;
-    if (s.bankAccount) {
-      text(p, M, y, 'Or preferred method of payment is direct credit to:', { size: 9.5, color: GREY }); y += 18;
-      text(p, M, y, s.businessName || '', { size: 10 }); y += 13;
-      text(p, M, y, 'Account number: ' + s.bankAccount, { size: 10 }); y += 13;
-    }
-    if (inv.notes) {
-      y += 6;
-      wrap(inv.notes, PAGE_W - 2 * M, 9).forEach((l) => { text(p, M, y, l, { size: 9, color: GREY }); y += 11; });
+    // helper: move to a fresh page if we're near the bottom
+    function ensureRoom(needed) {
+      if (y > PAGE_H - needed) { p = makePage(); pages.push(p); y = 60; }
     }
 
-    // ---- Payment advice tear-off ----
-    let ty = Math.max(y + 44, PAGE_H - 196);
-    p.ops.push(`0.55 0.55 0.58 RG 0.8 w [3 3] 0 d ${M} ${(PAGE_H - ty).toFixed(2)} m ${amtR} ${(PAGE_H - ty).toFixed(2)} l S [] 0 d`);
-    ty += 26;
-    text(p, M, ty, 'PAYMENT ADVICE', { size: 18, bold: true });
-    let py = ty + 24;
-    text(p, M, py, 'To:  ' + (s.businessName || ''), { size: 10 }); py += 13;
-    (s.address || '').split('\n').forEach((l) => { if (l.trim()) { text(p, M + 20, py, l, { size: 10 }); py += 13; } });
+    if (isQuote) {
+      // ---- Quote: validity, notes, terms, acceptance ----
+      y += 22;
+      text(p, M, y, 'This quotation is valid until ' + longDate(inv.validUntil) + '.', { size: 10.5, bold: true }); y += 8;
+      if (inv.notes) {
+        y += 12;
+        wrap(inv.notes, PAGE_W - 2 * M, 9).forEach((l) => { text(p, M, y, l, { size: 9, color: GREY }); y += 11; });
+      }
+      if (inv.terms) {
+        y += 22; ensureRoom(90);
+        text(p, M, y, 'Terms & Conditions', { size: 12, bold: true }); y += 16;
+        inv.terms.split('\n').forEach((line) => {
+          const ls = line.trim() ? wrap(line, PAGE_W - 2 * M, 8.5) : [''];
+          ls.forEach((w) => { ensureRoom(40); text(p, M, y, w, { size: 8.5, color: GREY }); y += 11.5; });
+        });
+      }
+      // Acceptance block
+      ensureRoom(108);
+      y += 26;
+      text(p, M, y, 'Acceptance', { size: 12, bold: true }); y += 16;
+      text(p, M, y, 'I/we accept this quotation and agree to the terms and conditions above.', { size: 9, color: GREY }); y += 32;
+      const half = (PAGE_W - 2 * M - 28) / 2;
+      text(p, M, y, 'Signed', { size: 9, bold: true });
+      hline(p, M + 46, y + 2, M + half, { color: [0.5, 0.5, 0.55] });
+      text(p, M + half + 28, y, 'Date', { size: 9, bold: true });
+      hline(p, M + half + 28 + 34, y + 2, PAGE_W - M, { color: [0.5, 0.5, 0.55] });
+      y += 30;
+      text(p, M, y, 'Name', { size: 9, bold: true });
+      hline(p, M + 46, y + 2, M + half, { color: [0.5, 0.5, 0.55] });
+    } else {
+      // ---- Invoice: payment details ----
+      y += 24;
+      text(p, M, y, 'Due Date: ' + longDate(inv.dueDate), { size: 11, bold: true }); y += 16;
+      if (s.bankAccount) {
+        text(p, M, y, 'Or preferred method of payment is direct credit to:', { size: 9.5, color: GREY }); y += 18;
+        text(p, M, y, s.businessName || '', { size: 10 }); y += 13;
+        text(p, M, y, 'Account number: ' + s.bankAccount, { size: 10 }); y += 13;
+      }
+      if (inv.notes) {
+        y += 6;
+        wrap(inv.notes, PAGE_W - 2 * M, 9).forEach((l) => { text(p, M, y, l, { size: 9, color: GREY }); y += 11; });
+      }
 
-    const plX = 360, pvX = 470; let qy = ty + 6;
-    function pair(label, value, bold) {
-      text(p, plX, qy, label, { size: 9.5, color: GREY });
-      if (value) text(p, pvX, qy, value, { size: 10, bold });
-      qy += 17;
+      // ---- Payment advice tear-off ----
+      let ty = Math.max(y + 44, PAGE_H - 196);
+      p.ops.push(`0.55 0.55 0.58 RG 0.8 w [3 3] 0 d ${M} ${(PAGE_H - ty).toFixed(2)} m ${amtR} ${(PAGE_H - ty).toFixed(2)} l S [] 0 d`);
+      ty += 26;
+      text(p, M, ty, 'PAYMENT ADVICE', { size: 18, bold: true });
+      let py = ty + 24;
+      text(p, M, py, 'To:  ' + (s.businessName || ''), { size: 10 }); py += 13;
+      (s.address || '').split('\n').forEach((l) => { if (l.trim()) { text(p, M + 20, py, l, { size: 10 }); py += 13; } });
+
+      const plX = 360, pvX = 470; let qy = ty + 6;
+      function pair(label, value, bold) {
+        text(p, plX, qy, label, { size: 9.5, color: GREY });
+        if (value) text(p, pvX, qy, value, { size: 10, bold });
+        qy += 17;
+      }
+      pair('Customer', client ? client.name : '—');
+      pair('Invoice Number', inv.number || 'DRAFT');
+      hline(p, plX, qy - 11, amtR, { color: [0.85, 0.86, 0.9] });
+      pair('Amount Due', num(t.paid > 0 ? t.balance : t.total), true);
+      pair('Due Date', longDate(inv.dueDate));
+      hline(p, plX, qy - 11, amtR, { color: [0.85, 0.86, 0.9] });
+      pair('Amount Enclosed', '');
+      text(p, amtR, qy + 5, 'Enter the amount you are paying above', { size: 7.5, color: GREY, align: 'right' });
     }
-    pair('Customer', client ? client.name : '—');
-    pair('Invoice Number', inv.number || 'DRAFT');
-    hline(p, plX, qy - 11, amtR, { color: [0.85, 0.86, 0.9] });
-    pair('Amount Due', num(t.paid > 0 ? t.balance : t.total), true);
-    pair('Due Date', longDate(inv.dueDate));
-    hline(p, plX, qy - 11, amtR, { color: [0.85, 0.86, 0.9] });
-    pair('Amount Enclosed', '');
-    text(p, amtR, qy + 5, 'Enter the amount you are paying above', { size: 7.5, color: GREY, align: 'right' });
 
     return assemble(pages, img);
   }
@@ -940,6 +1090,11 @@ const Pdf = (() => {
         if (a && b === 'edit') return invoiceEditor(a);
         if (a) return invoiceView(a);
         return invoiceList();
+      case 'quotes':
+        if (a === 'new') return quoteEditor(null);
+        if (a && b === 'edit') return quoteEditor(a);
+        if (a) return quoteView(a);
+        return quoteList();
       case 'clients':
         if (a === 'new') return clientEditor(null);
         if (a && b === 'edit') return clientEditor(a);
@@ -958,6 +1113,8 @@ const Pdf = (() => {
     document.querySelectorAll('.tabbar a').forEach((a) => {
       a.classList.toggle('active', a.dataset.tab === section);
     });
+    const fab = document.getElementById('fab');
+    if (fab) fab.setAttribute('href', section === 'quotes' ? '#/quotes/new' : '#/invoices/new');
   }
 
   // Initials + a stable colour for client avatars.
@@ -969,6 +1126,24 @@ const Pdf = (() => {
     let h = 0;
     for (let i = 0; i < (str || '').length; i++) h = str.charCodeAt(i) + ((h << 5) - h);
     return `hsl(${Math.abs(h) % 360} 62% 52%)`;
+  }
+
+  // Branding used on QUOTES — the separate consulting profile (KRE Consulting).
+  // These never fall back to the main (RCK) business, so RCK details never
+  // leak onto a quote. Other settings (currency, terms, etc.) are inherited.
+  function quoteBrand(s) {
+    return Object.assign({}, s, {
+      businessName: s.quoteBusinessName || 'KRE Consulting',
+      address: s.quoteAddress || '',
+      gstNumber: s.quoteGstNumber || '',
+      email: s.quoteEmail || '',
+      phone: s.quotePhone || '',
+      bankAccount: s.quoteBankAccount || '',
+      logo: s.quoteLogo || '',
+      logoData: s.quoteLogoData || '',
+      logoW: s.quoteLogoW || 0,
+      logoH: s.quoteLogoH || 0,
+    });
   }
 
   /* ============================ Helpers ============================ */
@@ -1031,7 +1206,10 @@ const Pdf = (() => {
         </div>
       </div>
 
-      <button class="btn primary block" data-action="new-invoice">+ New invoice</button>
+      <div class="btn-grid">
+        <button class="btn primary" data-action="new-invoice">+ Invoice</button>
+        <button class="btn" data-action="new-quote">+ Quote</button>
+      </div>
 
       <h2 class="section-title">Recent invoices</h2>
       <div class="list">
@@ -1041,6 +1219,8 @@ const Pdf = (() => {
     `;
     bindList();
     $('[data-action="new-invoice"]').onclick = () => go('/invoices/new');
+    const nqBtn = $('[data-action="new-quote"]');
+    if (nqBtn) nqBtn.onclick = () => go('/quotes/new');
     updateTabBar();
   }
 
@@ -1089,6 +1269,8 @@ const Pdf = (() => {
   function bindList() {
     document.querySelectorAll('[data-invoice]').forEach(
       (r) => (r.onclick = () => go('/invoices/' + r.dataset.invoice)));
+    document.querySelectorAll('[data-quote]').forEach(
+      (r) => (r.onclick = () => go('/quotes/' + r.dataset.quote)));
     document.querySelectorAll('[data-client]').forEach(
       (r) => (r.onclick = () => go('/clients/' + r.dataset.client + '/edit')));
   }
@@ -1415,6 +1597,310 @@ const Pdf = (() => {
     updateTabBar();
   }
 
+  /* ============================ Quotes ============================ */
+  let quoteFilter = 'all';
+  function quoteRow(q) {
+    const client = Store.getClient(q.clientId);
+    const t = Util.totals(q);
+    const st = Util.quoteStatus(q);
+    return `
+      <a class="row" data-quote="${q.id}">
+        <div class="row-main">
+          <span class="row-title">${esc(q.number || 'Draft')}</span>
+          <span class="row-sub">${esc(client ? client.name : 'No client')} · ${Util.formatDate(q.issueDate)}</span>
+        </div>
+        <div class="row-right">
+          <span class="row-amount">${Util.money(t.total)}</span>
+          <span class="pill ${st}">${Util.QUOTE_STATUS_LABEL[st]}</span>
+        </div>
+      </a>`;
+  }
+  function quoteList() {
+    let quotes = Store.getQuotes();
+    if (quoteFilter !== 'all') quotes = quotes.filter((q) => Util.quoteStatus(q) === quoteFilter);
+    const chips = ['all', 'draft', 'sent', 'accepted', 'declined'].map((f) =>
+      `<button class="chip ${quoteFilter === f ? 'active' : ''}" data-qfilter="${f}">${
+        f === 'all' ? 'All' : Util.QUOTE_STATUS_LABEL[f]}</button>`).join('');
+    view.innerHTML = `
+      ${header('Quotes', '<button class="icon-btn" data-action="new-quote">＋</button>')}
+      <div class="chips">${chips}</div>
+      <div class="list">
+        ${quotes.length ? quotes.map(quoteRow).join('') :
+          empty('📄', 'No quotes here.',
+            '<button class="btn primary" data-action="new-quote">+ New quote</button>')}
+      </div>`;
+    bindList();
+    document.querySelectorAll('[data-action="new-quote"]').forEach((b) => (b.onclick = () => go('/quotes/new')));
+    document.querySelectorAll('[data-qfilter]').forEach((c) => (c.onclick = () => { quoteFilter = c.dataset.qfilter; quoteList(); }));
+    updateTabBar();
+  }
+
+  function quoteView(id) {
+    const q = Store.getQuote(id);
+    if (!q) { go('/quotes'); return; }
+    const s = quoteBrand(Store.getSettings());
+    const client = Store.getClient(q.clientId);
+    const t = Util.totals(q);
+    const st = Util.quoteStatus(q);
+    const lines = (q.lineItems || []).map((li) => {
+      const heading = !Number(li.quantity) && !Number(li.unitPrice);
+      const amt = (Number(li.quantity) || 0) * (Number(li.unitPrice) || 0);
+      return `<tr>
+        <td>${esc(li.description)}</td>
+        <td class="num">${heading ? '' : (Number(li.quantity) || 0)}</td>
+        <td class="num">${heading ? '' : Util.money(li.unitPrice)}</td>
+        <td class="num">${heading ? '' : Util.money(amt)}</td></tr>`;
+    }).join('');
+
+    view.innerHTML = `
+      ${header('Quote', '<button class="icon-btn" data-action="edit">✏️</button>')}
+      <div class="invoice-doc">
+        <div class="doc-head">
+          <div>
+            ${s.logo ? `<img class="doc-logo" src="${s.logo}" alt="logo">` : ''}
+            <div class="doc-biz">${esc(s.businessName)}</div>
+            ${s.gstNumber ? `<div class="doc-muted">GST: ${esc(s.gstNumber)}</div>` : ''}
+          </div>
+          <div class="doc-title">
+            <div class="doc-tax">QUOTATION</div>
+            <div class="doc-num">${esc(q.number || 'DRAFT')}</div>
+            <span class="pill ${st}">${Util.QUOTE_STATUS_LABEL[st]}</span>
+          </div>
+        </div>
+        <div class="doc-meta">
+          <div>
+            <div class="doc-label">For</div>
+            <div class="doc-strong">${esc(client ? client.name : '—')}</div>
+            ${client && client.address ? `<div class="doc-muted">${esc(client.address).replace(/\n/g, '<br>')}</div>` : ''}
+          </div>
+          <div class="doc-dates">
+            <div><span class="doc-label">Date</span> ${Util.formatDate(q.issueDate)}</div>
+            <div><span class="doc-label">Valid until</span> ${Util.formatDate(q.validUntil)}</div>
+            ${q.reference ? `<div><span class="doc-label">Ref</span> ${esc(q.reference)}</div>` : ''}
+            ${q.quoteType ? `<div><span class="doc-label">Type</span> ${esc(q.quoteType)}</div>` : ''}
+          </div>
+        </div>
+        <table class="doc-table">
+          <thead><tr><th>Description</th><th class="num">Qty</th><th class="num">Unit</th><th class="num">Amount</th></tr></thead>
+          <tbody>${lines || '<tr><td colspan="4" class="doc-muted">No items</td></tr>'}</tbody>
+        </table>
+        <div class="doc-totals">
+          <div><span>Subtotal</span><span>${Util.money(t.subtotal)}</span></div>
+          <div><span>GST (${t.rate}%)</span><span>${Util.money(t.gst)}</span></div>
+          <div class="grand"><span>Total</span><span>${Util.money(t.total)}</span></div>
+        </div>
+        ${q.terms ? `<div class="doc-notes"><strong>Terms &amp; Conditions</strong><br>${esc(q.terms).replace(/\n/g, '<br>')}</div>` : ''}
+      </div>
+
+      <div class="actions no-print">
+        <button class="btn primary block" data-action="pdf">📄 Save / send PDF</button>
+        ${q.status === 'draft' ? '<button class="btn block" data-action="send">Mark as sent</button>' : ''}
+        ${st !== 'accepted' ? '<button class="btn block" data-action="accept">Mark accepted</button>' : ''}
+        <div class="btn-grid">
+          <button class="btn" data-action="convert">Convert to invoice</button>
+          <button class="btn" data-action="edit">Edit</button>
+        </div>
+        <button class="btn danger-text block" data-action="delete">Delete quote</button>
+      </div>`;
+
+    $('[data-action="edit"]').onclick = () => go('/quotes/' + id + '/edit');
+    $('[data-action="pdf"]').onclick = () => exportQuotePdf(q);
+    const snd = $('[data-action="send"]');
+    if (snd) snd.onclick = () => { q.status = 'sent'; Store.saveQuote(q); render(); };
+    const acc = $('[data-action="accept"]');
+    if (acc) acc.onclick = () => { q.status = 'accepted'; Store.saveQuote(q); render(); };
+    $('[data-action="convert"]').onclick = () => convertToInvoice(q);
+    $('[data-action="delete"]').onclick = () => {
+      if (confirm('Delete this quote? This cannot be undone.')) { Store.deleteQuote(id); go('/quotes'); }
+    };
+    updateTabBar();
+  }
+
+  function exportQuotePdf(q) {
+    try {
+      const s = quoteBrand(Store.getSettings());
+      const client = Store.getClient(q.clientId);
+      const t = Util.totals(q);
+      const pdfStr = Pdf.generate({ docType: 'quote', inv: q, settings: s, client, totals: t });
+      const filename = 'Quote-' + String(q.number || 'draft').replace(/[^\w-]/g, '') + '.pdf';
+      const blob = new Blob([Pdf.toBytes(pdfStr)], { type: 'application/pdf' });
+      let file = null;
+      try { file = new File([blob], filename, { type: 'application/pdf' }); } catch (e) { /* older */ }
+      if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: filename }).catch(() => {});
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch (e) {
+      alert('Sorry, the PDF could not be created: ' + (e && e.message));
+    }
+  }
+
+  function convertToInvoice(q) {
+    if (!confirm('Create a new invoice from this quote?')) return;
+    const s = Store.getSettings();
+    const inv = {
+      id: null, number: null, clientId: q.clientId, reference: q.reference || '',
+      issueDate: Util.todayISO(), dueDate: Util.addDays(Util.todayISO(), s.paymentTerms),
+      lineItems: JSON.parse(JSON.stringify(q.lineItems || [])),
+      gstRate: q.gstRate, status: 'draft', payments: [], notes: s.notes,
+    };
+    inv.number = Store.nextInvoiceNumber();
+    const saved = Store.saveInvoice(inv);
+    q.status = 'accepted'; q.convertedInvoiceId = saved.id; Store.saveQuote(q);
+    toast('Invoice created from quote');
+    go('/invoices/' + saved.id);
+  }
+
+  function quoteEditor(id) {
+    const s = Store.getSettings();
+    const clients = Store.getClients();
+    const isNew = !id;
+    if (isNew) {
+      const firstType = (s.quoteTypes && s.quoteTypes[0]) || 'General';
+      draft = {
+        id: null, number: null, clientId: clients[0] ? clients[0].id : '', reference: '',
+        issueDate: Util.todayISO(), validUntil: Util.addDays(Util.todayISO(), s.quoteValidDays),
+        quoteType: firstType, terms: (s.quoteTerms && s.quoteTerms[firstType]) || '',
+        lineItems: [blankLine()], gstRate: s.gstRate, status: 'draft', notes: '',
+      };
+    } else {
+      draft = JSON.parse(JSON.stringify(Store.getQuote(id)));
+      if (!draft.lineItems || !draft.lineItems.length) draft.lineItems = [blankLine()];
+    }
+
+    function lineRows() {
+      return draft.lineItems.map((li, i) => `
+        <div class="line-item" data-line="${i}">
+          <input class="li-desc" placeholder="Description (leave qty/price blank for a heading)" value="${esc(li.description)}" data-field="description" data-i="${i}">
+          <div class="li-row">
+            <input class="li-qty" type="number" inputmode="decimal" step="any" placeholder="Qty" value="${li.quantity}" data-field="quantity" data-i="${i}">
+            <span class="li-x">×</span>
+            <input class="li-price" type="number" inputmode="decimal" step="0.01" placeholder="Unit price" value="${li.unitPrice}" data-field="unitPrice" data-i="${i}">
+            <span class="li-amt">${Util.money((Number(li.quantity) || 0) * (Number(li.unitPrice) || 0))}</span>
+            <button class="li-del" data-del-line="${i}" aria-label="Remove">✕</button>
+          </div>
+        </div>`).join('');
+    }
+    function totalsBar() {
+      const t = Util.totals(draft);
+      return `<div><span>Subtotal</span><span>${Util.money(t.subtotal)}</span></div>
+        <div><span>GST (${t.rate}%)</span><span>${Util.money(t.gst)}</span></div>
+        <div class="grand"><span>Total</span><span>${Util.money(t.total)}</span></div>`;
+    }
+    const clientOptions = clients.map((c) =>
+      `<option value="${c.id}" ${c.id === draft.clientId ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+    const typeOptions = (s.quoteTypes || []).map((tp) =>
+      `<option value="${esc(tp)}" ${tp === draft.quoteType ? 'selected' : ''}>${esc(tp)}</option>`).join('');
+
+    view.innerHTML = `
+      ${header(isNew ? 'New quote' : 'Edit quote', '<button class="link" data-action="cancel">Cancel</button>')}
+      <div class="form">
+        <label>Client</label>
+        <div class="inline">
+          <select id="clientSel">${clientOptions}<option value="__new">+ Add new client…</option></select>
+        </div>
+        <div class="two-col">
+          <div><label>Quote date</label><input type="date" id="issueDate" value="${draft.issueDate}"></div>
+          <div><label>Valid until</label><input type="date" id="validUntil" value="${draft.validUntil}"></div>
+        </div>
+        <label>Reference</label>
+        <input type="text" id="reference" value="${esc(draft.reference || '')}" placeholder="e.g. Driveway – 42 Beach Rd">
+        <label>Quote type</label>
+        <select id="quoteType">${typeOptions}</select>
+
+        <label>Line items</label>
+        <div id="lineItems">${lineRows()}</div>
+        <button class="btn small" id="addLine">+ Add line</button>
+
+        <div class="two-col">
+          <div><label>GST rate (%)</label><input type="number" id="gstRate" step="0.01" value="${draft.gstRate}"></div>
+        </div>
+        <div class="totals-bar" id="totalsBar">${totalsBar()}</div>
+
+        <label>Terms &amp; Conditions</label>
+        <textarea id="terms" rows="6">${esc(draft.terms || '')}</textarea>
+        <p class="hint">Changing the quote type can reload the matching default terms. You can edit them here for this quote only.</p>
+
+        <label>Notes (optional)</label>
+        <textarea id="notes" rows="2">${esc(draft.notes || '')}</textarea>
+
+        <div class="btn-grid">
+          <button class="btn" id="saveDraft">Save as draft</button>
+          <button class="btn primary" id="saveSend">${isNew ? 'Save & mark sent' : 'Save'}</button>
+        </div>
+      </div>`;
+
+    function syncFromInputs() {
+      draft.issueDate = $('#issueDate').value;
+      draft.validUntil = $('#validUntil').value;
+      draft.reference = $('#reference').value;
+      draft.quoteType = $('#quoteType').value;
+      draft.gstRate = Number($('#gstRate').value) || 0;
+      draft.terms = $('#terms').value;
+      draft.notes = $('#notes').value;
+    }
+    function refreshTotals() { $('#totalsBar').innerHTML = totalsBar(); }
+    function refreshLines() { $('#lineItems').innerHTML = lineRows(); bindLineInputs(); }
+    function bindLineInputs() {
+      document.querySelectorAll('#lineItems [data-field]').forEach((inp) => {
+        inp.oninput = () => {
+          const i = Number(inp.dataset.i), f = inp.dataset.field;
+          draft.lineItems[i][f] = inp.value;
+          const li = draft.lineItems[i];
+          const amtEl = inp.closest('.line-item').querySelector('.li-amt');
+          if (amtEl) amtEl.textContent = Util.money((Number(li.quantity) || 0) * (Number(li.unitPrice) || 0));
+          refreshTotals();
+        };
+      });
+      document.querySelectorAll('#lineItems [data-del-line]').forEach((b) => b.onclick = () => {
+        draft.lineItems.splice(Number(b.dataset.delLine), 1);
+        if (!draft.lineItems.length) draft.lineItems.push(blankLine());
+        refreshLines(); refreshTotals();
+      });
+    }
+    bindLineInputs();
+
+    $('#addLine').onclick = () => { draft.lineItems.push(blankLine()); refreshLines(); refreshTotals(); };
+    $('#gstRate').oninput = () => { draft.gstRate = Number($('#gstRate').value) || 0; refreshTotals(); };
+    $('#quoteType').onchange = (e) => {
+      const tp = e.target.value;
+      draft.quoteType = tp;
+      const def = (s.quoteTerms && s.quoteTerms[tp]) || '';
+      const cur = $('#terms').value;
+      if (!cur.trim() || confirm('Load the default terms for "' + tp + '"? This replaces the current terms text.')) {
+        draft.terms = def; $('#terms').value = def;
+      }
+    };
+    $('#clientSel').onchange = (e) => {
+      if (e.target.value === '__new') {
+        const name = prompt('New client name:');
+        if (name && name.trim()) { const c = Store.saveClient({ name: name.trim() }); draft.clientId = c.id; }
+        quoteEditor(id); return;
+      }
+      draft.clientId = e.target.value;
+    };
+    $('[data-action="cancel"]').onclick = () => history.length > 1 ? history.back() : go('/quotes');
+
+    function persist(markSent) {
+      syncFromInputs();
+      if (!draft.clientId) { alert('Please choose a client.'); return; }
+      const hasItems = draft.lineItems.some((li) => li.description || Number(li.unitPrice));
+      if (!hasItems) { alert('Add at least one line item.'); return; }
+      if (markSent && draft.status === 'draft') draft.status = 'sent';
+      if (!draft.number) draft.number = Store.nextQuoteNumber();
+      const saved = Store.saveQuote(draft);
+      go('/quotes/' + saved.id);
+    }
+    $('#saveDraft').onclick = () => persist(false);
+    $('#saveSend').onclick = () => persist(true);
+    updateTabBar();
+  }
+
   /* ============================ Clients ============================ */
   function clientList() {
     const clients = Store.getClients();
@@ -1515,6 +2001,40 @@ const Pdf = (() => {
         </div>
         <label>Default invoice notes</label><textarea id="s_notes" rows="2">${esc(s.notes)}</textarea>
 
+        <h2 class="section-title">Quote branding</h2>
+        <p class="hint">Quotes use these details and logo instead of your main (RCK) business — for your consulting brand.</p>
+        <label>Business name</label><input id="qb_name" value="${esc(s.quoteBusinessName)}">
+        <label>Address</label><textarea id="qb_address" rows="3">${esc(s.quoteAddress)}</textarea>
+        <label>GST number</label><input id="qb_gst" value="${esc(s.quoteGstNumber)}">
+        <div class="two-col">
+          <div><label>Email</label><input id="qb_email" type="email" value="${esc(s.quoteEmail)}"></div>
+          <div><label>Phone</label><input id="qb_phone" type="tel" value="${esc(s.quotePhone)}"></div>
+        </div>
+        <label>Quote logo</label>
+        <div class="logo-row">
+          <div class="logo-box">${s.quoteLogo ? `<img src="${s.quoteLogo}" alt="logo">` : '<span class="hint">None</span>'}</div>
+          <div class="logo-actions">
+            <button class="btn small" id="qLogoBtn" type="button">${s.quoteLogo ? 'Change' : 'Upload'}</button>
+            ${s.quoteLogo ? '<button class="btn small danger-text" id="qLogoRemove" type="button">Remove</button>' : ''}
+          </div>
+        </div>
+        <input type="file" id="qLogoFile" accept="image/*" hidden>
+        <p class="hint">Shown top-right of quote PDFs. Quotes never use your RCK logo.</p>
+
+        <h2 class="section-title">Quote defaults</h2>
+        <div class="two-col">
+          <div><label>Quote prefix</label><input id="q_prefix" value="${esc(s.quotePrefix)}"></div>
+          <div><label>Next quote #</label><input id="q_next" type="number" value="${s.nextQuoteNumber}"></div>
+        </div>
+        <div class="two-col">
+          <div><label>Valid for (days)</label><input id="q_valid" type="number" value="${s.quoteValidDays}"></div>
+        </div>
+        <label>Terms &amp; Conditions templates</label>
+        <p class="hint">These load automatically when you pick a quote type. Edit them to match your business.</p>
+        ${(s.quoteTypes || []).map((tp) => `
+          <div class="term-label">${esc(tp)}</div>
+          <textarea class="q-term" data-type="${esc(tp)}" rows="5">${esc(s.quoteTerms[tp] || '')}</textarea>`).join('')}
+
         <button class="btn primary block" id="saveSettings">Save settings</button>
 
         <h2 class="section-title">Data backup</h2>
@@ -1538,6 +2058,18 @@ const Pdf = (() => {
         paymentTerms: Number($('#s_terms').value) || 0,
         invoicePrefix: $('#s_prefix').value, nextNumber: Number($('#s_next').value) || 1,
         notes: $('#s_notes').value,
+        quotePrefix: $('#q_prefix').value, nextQuoteNumber: Number($('#q_next').value) || 1,
+        quoteValidDays: Number($('#q_valid').value) || 30,
+        quoteBusinessName: $('#qb_name').value.trim(),
+        quoteAddress: $('#qb_address').value.trim(),
+        quoteGstNumber: $('#qb_gst').value.trim(),
+        quoteEmail: $('#qb_email').value.trim(),
+        quotePhone: $('#qb_phone').value.trim(),
+        quoteTerms: (() => {
+          const o = Object.assign({}, Store.getSettings().quoteTerms);
+          document.querySelectorAll('.q-term').forEach((t) => { o[t.dataset.type] = t.value; });
+          return o;
+        })(),
       });
       toast('Settings saved');
     };
@@ -1569,12 +2101,26 @@ const Pdf = (() => {
       Store.saveSettings({ logo: '', logoData: '', logoW: 0, logoH: 0 });
       toast('Logo removed'); settingsView();
     };
+    const qLogoBtn = $('#qLogoBtn');
+    if (qLogoBtn) qLogoBtn.onclick = () => $('#qLogoFile').click();
+    const qLogoFile = $('#qLogoFile');
+    if (qLogoFile) qLogoFile.onchange = (e) => {
+      if (e.target.files[0]) processLogo(e.target.files[0],
+        { logo: 'quoteLogo', data: 'quoteLogoData', w: 'quoteLogoW', h: 'quoteLogoH' });
+    };
+    const qLogoRm = $('#qLogoRemove');
+    if (qLogoRm) qLogoRm.onclick = () => {
+      Store.saveSettings({ quoteLogo: '', quoteLogoData: '', quoteLogoW: 0, quoteLogoH: 0 });
+      toast('Logo removed'); settingsView();
+    };
     updateTabBar();
   }
 
   // Read an image file, downscale it, and store both a PNG preview (for the
   // screen) and raw RGB bytes (for embedding in the PDF) in settings.
-  function processLogo(file) {
+  // `keys` selects which settings fields to write to (main logo vs quote logo).
+  function processLogo(file, keys) {
+    keys = keys || { logo: 'logo', data: 'logoData', w: 'logoW', h: 'logoH' };
     const reader = new FileReader();
     reader.onload = () => {
       const im = new Image();
@@ -1593,7 +2139,10 @@ const Pdf = (() => {
           const arr = new Array(w * h);
           for (let i = 0, j = 0; i < px.length; i += 4, j++)
             arr[j] = String.fromCharCode(px[i], px[i + 1], px[i + 2]);
-          Store.saveSettings({ logo: preview, logoData: btoa(arr.join('')), logoW: w, logoH: h });
+          const patch = {};
+          patch[keys.logo] = preview; patch[keys.data] = btoa(arr.join(''));
+          patch[keys.w] = w; patch[keys.h] = h;
+          Store.saveSettings(patch);
           toast('Logo saved'); settingsView();
         } catch (err) { alert('Could not process that image: ' + err.message); }
       };
